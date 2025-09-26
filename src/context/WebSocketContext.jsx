@@ -1,5 +1,5 @@
 // src/context/WebSocketContext.jsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useSession } from './SessionContext';
 
@@ -16,6 +16,8 @@ export const useWebSocketContext = () => {
 export const WebSocketProvider = ({ children, roomCode }) => {
   const { playerId } = useSession();
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const reconnectTimeoutRef = useRef(null);
+  const hasInitializedRef = useRef(false);
   
   const {
     isConnected,
@@ -29,38 +31,55 @@ export const WebSocketProvider = ({ children, roomCode }) => {
     sendMessage
   } = useWebSocket(roomCode);
 
-  // Connect to WebSocket when roomCode changes
+  // Connect to WebSocket once when component mounts
   useEffect(() => {
-    if (roomCode) {
+    if (roomCode && !hasInitializedRef.current) {
+      console.log("Initial WebSocket connection for room:", roomCode);
+      hasInitializedRef.current = true;
       connect();
     }
     
     return () => {
-      disconnect();
+      // Clear any pending reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Only disconnect when component unmounts
+      if (hasInitializedRef.current) {
+        console.log("Disconnecting WebSocket on unmount");
+        disconnect();
+        hasInitializedRef.current = false;
+      }
     };
-  }, [roomCode, connect, disconnect]);
+    // Intentionally only run on mount and unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Reconnect if connection is lost
+  // Reconnection logic
   useEffect(() => {
-    let reconnectTimeout;
-    
-    if (!isConnected && roomCode && !isReconnecting) {
+    // Only attempt reconnect if we were connected before and now we're not
+    if (!isConnected && roomCode && hasInitializedRef.current && !isReconnecting) {
       setIsReconnecting(true);
-      reconnectTimeout = setTimeout(() => {
-        console.log('Attempting to reconnect WebSocket...');
+      console.log("Lost connection, attempting to reconnect in 5s...");
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log("Reconnection attempt for room:", roomCode);
         connect();
         setIsReconnecting(false);
-      }, 3000);
+      }, 5000);
     }
     
     return () => {
-      clearTimeout(reconnectTimeout);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
   }, [isConnected, roomCode, connect, isReconnecting]);
 
   // Handle message sending with current player ID
   const handleSendMessage = (content, messageType = 'REGULAR') => {
-    sendMessage(content, messageType, playerId);
+    return sendMessage(content, messageType, playerId);
   };
 
   return (

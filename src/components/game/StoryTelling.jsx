@@ -1,165 +1,264 @@
-// src/components/game/StoryTelling.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import Timer from '../common/Timer';
 import TwistNotification from './TwistNotification';
-import { Clock, Users, Book, Zap } from 'lucide-react';
+import LeaveRoom from '../room/LeaveRoom';
+import Modal from '../common/Modal';
+import Button from '../common/Button';
+import { Users, Clock, AlertTriangle, Check, Download } from 'lucide-react';
 
 const StoryTelling = ({ 
   messages, 
   timer, 
   twist, 
   currentPlayer, 
-  roomData,
-  onSendMessage,
+  roomData, 
+  onSendMessage, 
   onCompleteStory 
 }) => {
   const [showTwist, setShowTwist] = useState(false);
+  const [twistContent, setTwistContent] = useState(null);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const messagesEndRef = useRef(null);
-
+  const navigate = useNavigate();
+  
+  // Show twist notification when a new twist arrives
   useEffect(() => {
     if (twist) {
+      setTwistContent(twist);
       setShowTwist(true);
     }
   }, [twist]);
-
+  
+  // Auto-scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
-  const handleTwistAcknowledge = () => {
-    setShowTwist(false);
+  
+  // Format remaining time for display
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const storyMessages = messages.filter(msg => 
-    msg.messageType === 'REGULAR' || msg.messageType === 'TWIST'
-  );
-
-  const systemMessages = messages.filter(msg => msg.messageType === 'SYSTEM');
+  
+  // Get remaining time from timer or default
+  const remainingTime = timer ? timer.remainingTime : roomData.room.duration;
+  const totalTime = timer ? timer.totalTime : roomData.room.duration;
+  const timeRemaining = formatTime(remainingTime);
+  const progress = (remainingTime / totalTime) * 100;
+  
+  const handleSendMessage = (content, messageType) => {
+    onSendMessage(content, messageType);
+  };
+  
+  const handleCompleteStory = async () => {
+    setIsCompleting(true);
+    try {
+      await onCompleteStory();
+      setShowCompleteConfirm(false);
+    } catch (error) {
+      console.error('Error completing story:', error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
-      {/* Story Chat - Main Column */}
-      <div className="lg:col-span-3 flex flex-col">
-        <div className="card flex-1 flex flex-col">
-          {/* Story Header */}
-          <div className="border-b border-white/20 pb-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="fantasy-title text-xl font-bold text-white mb-1">
-                  {roomData.room.title}
-                </h2>
-                {roomData.room.description && (
-                  <p className="text-white/70 text-sm">{roomData.room.description}</p>
-                )}
-              </div>
-              <div className="text-right">
-                <Timer 
-                  remainingTime={timer?.remainingTime}
-                  totalTime={timer?.totalTime}
-                  isCompleted={timer?.isCompleted}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Messages Display */}
-          <div className="flex-1 overflow-y-auto mb-4 space-y-3 min-h-0">
-            {storyMessages.length === 0 ? (
-              <div className="text-center text-white/60 py-8">
-                <Book className="w-12 h-12 mx-auto mb-4 text-white/40" />
-                <p>The story begins now...</p>
-                <p className="text-sm mt-2">Be the first to contribute to this tale!</p>
-              </div>
-            ) : (
-              <>
-                {storyMessages.map((message, index) => (
-                  <ChatMessage
-                    key={message.id || index}
-                    message={message}
-                    isCurrentUser={message.senderId === currentPlayer?.id}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
-
-          {/* Chat Input */}
-          <ChatInput
-            onSendMessage={onSendMessage}
-            disabled={timer?.isCompleted}
-            currentPlayer={currentPlayer}
-          />
+    <div>
+      {/* Room Header */}
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="fantasy-title text-3xl font-bold text-white">
+            {roomData.room.title || `Room: ${roomData.room.roomCode}`}
+          </h1>
+          {roomData.room.description && (
+            <p className="text-white/70 mt-1">{roomData.room.description}</p>
+          )}
         </div>
+        <LeaveRoom roomCode={roomData.room.roomCode} />
+      </div>
+      
+      {/* Status Bar */}
+      <div className="bg-white/5 rounded-lg p-3 mb-6 flex items-center justify-between">
+        <div className="flex gap-4">
+          <div className="flex items-center">
+            <Users className="w-4 h-4 text-white/70 mr-2" />
+            <span className="text-white">{roomData.players.length} Players</span>
+          </div>
+          <div className="flex items-center">
+            <Clock className="w-4 h-4 text-white/70 mr-2" />
+            <span className="text-white">{timeRemaining}</span>
+          </div>
+        </div>
+        
+        {/* Complete button (visible only to room creator) */}
+        {currentPlayer?.isTitleCreator && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowCompleteConfirm(true)}
+            icon={<Check className="w-4 h-4" />}
+          >
+            Complete Story
+          </Button>
+        )}
       </div>
 
-      {/* Sidebar */}
-      <div className="space-y-4">
-        {/* Room Info */}
-        <div className="card">
-          <h3 className="font-semibold text-white mb-3 flex items-center space-x-2">
-            <Users className="w-4 h-4" />
-            <span>Players</span>
-          </h3>
-          <div className="space-y-2">
-            {roomData.players.map((player) => (
-              <div key={player.id} className="flex items-center space-x-2 text-sm">
-                <span className="text-lg">{player.role === 'PROTAGONIST' ? '🗡️' : 
-                                                player.role === 'ANTAGONIST' ? '👹' : 
-                                                player.role === 'NARRATOR' ? '📚' : '👤'}</span>
-                <div className="flex-1">
-                  <p className="text-white font-medium">{player.characterName || player.playerName}</p>
-                  <p className="text-white/60 text-xs">{player.role.replace('_', ' ')}</p>
-                </div>
-              </div>
-            ))}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Chat Area - Main Content */}
+        <div className="lg:col-span-3">
+          {/* Timer Bar */}
+          <div className="mb-4">
+            <Timer 
+              timeRemaining={remainingTime} 
+              totalTime={totalTime} 
+            />
           </div>
+          
+          {/* Messages */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 h-[60vh] overflow-y-auto">
+            {messages.length === 0 && (
+              <div className="text-center py-8 text-white/50">
+                <p>No messages yet. Start the story!</p>
+              </div>
+            )}
+            
+            {messages.map((msg, idx) => (
+              <ChatMessage 
+                key={msg.id || idx}
+                message={msg}
+                isCurrentUser={msg.senderId === currentPlayer?.id}
+              />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          
+          {/* Chat Input */}
+          <ChatInput 
+            onSendMessage={handleSendMessage}
+            disabled={isCompleting}
+            currentRole={currentPlayer?.role}
+          />
         </div>
-
-        {/* System Messages */}
-        {systemMessages.length > 0 && (
+        
+        {/* Players Sidebar */}
+        <div className="lg:col-span-1">
           <div className="card">
-            <h3 className="font-semibold text-white mb-3 flex items-center space-x-2">
-              <Clock className="w-4 h-4" />
-              <span>Updates</span>
-            </h3>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {systemMessages.slice(-5).map((message, index) => (
-                <div key={message.id || index} className="text-sm text-white/70 p-2 bg-white/5 rounded">
-                  {message.content}
+            <h2 className="text-lg font-bold text-white mb-4">Characters</h2>
+            
+            <div className="space-y-3">
+              {roomData.players.map(player => (
+                <div 
+                  key={player.id} 
+                  className={`p-3 rounded-lg ${
+                    player.id === currentPlayer?.id 
+                      ? 'bg-primary-600/20 border border-primary-600/30' 
+                      : 'bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <div className="text-lg">
+                      {player.role === 'PROTAGONIST' ? '🗡️' : 
+                       player.role === 'ANTAGONIST' ? '👹' :
+                       player.role === 'NARRATOR' ? '📚' : '👤'}
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">
+                        {player.characterName || player.playerName}
+                        {player.id === currentPlayer?.id && (
+                          <span className="text-xs ml-1 text-white/60">(You)</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-white/60">
+                        {player.role?.replace('_', ' ')} · {player.playerName}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
+            
+            <div className="mt-6 p-3 bg-white/5 rounded-lg border border-white/10">
+              <h3 className="font-medium text-white mb-2">Story Information</h3>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="text-white/60">Genre:</span>{' '}
+                  <span className="text-white">{formatGenre(roomData.room.genre)}</span>
+                </div>
+                <div>
+                  <span className="text-white/60">Duration:</span>{' '}
+                  <span className="text-white">{Math.floor(roomData.room.duration / 60)} minutes</span>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* Complete Story Button (Title Creator Only) */}
-        {currentPlayer?.isTitleCreator && !timer?.isCompleted && (
-          <button
-            onClick={onCompleteStory}
-            className="w-full btn-secondary flex items-center justify-center space-x-2"
-          >
-            <CheckCircle className="w-4 h-4" />
-            <span>Complete Story</span>
-          </button>
-        )}
+        </div>
       </div>
-
-      {/* Twist Notification Modal */}
-      {showTwist && twist && (
-        <TwistNotification
-          twist={twist}
-          onAcknowledge={handleTwistAcknowledge}
+      
+      {/* Twist Notification */}
+      {showTwist && twistContent && (
+        <TwistNotification 
+          twist={twistContent} 
+          onClose={() => setShowTwist(false)} 
         />
       )}
+      
+      {/* Complete Story Confirmation Modal */}
+      <Modal
+        isOpen={showCompleteConfirm}
+        onClose={() => setShowCompleteConfirm(false)}
+        title="Complete Story"
+        footer={
+          <>
+            <Button 
+              variant="ghost" 
+              onClick={() => setShowCompleteConfirm(false)}
+              disabled={isCompleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="primary" 
+              onClick={handleCompleteStory}
+              isLoading={isCompleting}
+            >
+              Complete Story
+            </Button>
+          </>
+        }
+      >
+        <div className="flex items-start space-x-4">
+          <div className="bg-primary-500/20 p-3 rounded-full">
+            <AlertTriangle className="w-6 h-6 text-primary-500" />
+          </div>
+          <div>
+            <p className="text-white mb-4">
+              Are you sure you want to complete the story? This will end the storytelling session for everyone.
+            </p>
+            <p className="text-white/70 text-sm">
+              You'll be able to view and download the final story after completion.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
+
+// Helper function to format genre
+function formatGenre(genre) {
+  if (!genre) return '';
+  return genre.replace('_', ' ').split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
 
 export default StoryTelling;

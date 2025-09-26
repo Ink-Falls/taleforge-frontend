@@ -1,42 +1,38 @@
-// src/components/game/TwistNotification.jsx
 import React from 'react';
-import { Zap, X } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
+import Button from '../common/Button';
 
-const TwistNotification = ({ twist, onAcknowledge }) => {
+const TwistNotification = ({ twist, onClose }) => {
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gradient-to-br from-purple-900 to-purple-800 border-2 border-purple-400 rounded-xl p-6 max-w-md w-full shadow-2xl animate-slide-up">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Zap className="w-6 h-6 text-purple-300" />
-            <h3 className="fantasy-title text-xl font-bold text-white">
-              Big Twist!
-            </h3>
-          </div>
-          <button
-            onClick={onAcknowledge}
-            className="text-purple-300 hover:text-white transition-colors"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+      <div className="bg-gradient-to-br from-purple-800 to-indigo-900 border border-purple-500/30 rounded-lg p-6 max-w-md w-full animate-fade-in-up shadow-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-white flex items-center">
+            <Sparkles className="w-5 h-5 mr-2 text-yellow-400" />
+            Plot Twist Opportunity
+          </h3>
+          <button 
+            onClick={onClose}
+            className="text-white/70 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        <div className="bg-white/10 rounded-lg p-4 mb-6">
-          <p className="text-white leading-relaxed">
-            {twist.content}
+        
+        <div className="mb-6">
+          <p className="text-white/90 mb-4">
+            You've been chosen to introduce a plot twist to the story!
           </p>
+          
+          <div className="bg-purple-700/50 border border-purple-500/50 p-4 rounded-lg">
+            <p className="text-white font-medium">{twist.twistPrompt}</p>
+          </div>
         </div>
-
-        <div className="text-center">
-          <p className="text-purple-200 text-sm mb-4">
-            Use this twist to dramatically change the story direction!
-          </p>
-          <button
-            onClick={onAcknowledge}
-            className="btn-primary w-full"
-          >
-            Got it! Let's twist this tale
-          </button>
+        
+        <div className="flex justify-end">
+          <Button onClick={onClose}>
+            I'll Add My Twist
+          </Button>
         </div>
       </div>
     </div>

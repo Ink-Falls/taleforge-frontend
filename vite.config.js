@@ -9,6 +9,10 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
     css: true,
   },
+  define: {
+    // Polyfill for sockjs-client
+    global: 'globalThis',
+  },
   server: {
     proxy: {
       '/api': {

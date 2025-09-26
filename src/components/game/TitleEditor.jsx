@@ -1,66 +1,110 @@
-// src/components/game/TitleEditor.jsx
 import React, { useState } from 'react';
-import { Save, Sparkles } from 'lucide-react';
+import Button from '../common/Button';
+import { Save, Edit } from 'lucide-react';
 
-const TitleEditor = ({ currentTitle, currentDescription, onSave, isLoading }) => {
+const TitleEditor = ({ 
+  currentTitle, 
+  currentDescription, 
+  onSave, 
+  isLoading 
+}) => {
   const [title, setTitle] = useState(currentTitle || '');
   const [description, setDescription] = useState(currentDescription || '');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (title.trim()) {
-      onSave({ title: title.trim(), description: description.trim() });
+  const [editing, setEditing] = useState(!currentTitle);
+  
+  const handleSave = async () => {
+    if (!title.trim()) {
+      alert('Title cannot be empty');
+      return;
+    }
+    
+    try {
+      await onSave({ title, description });
+      setEditing(false);
+    } catch (error) {
+      console.error('Error saving title:', error);
     }
   };
-
+  
+  if (!editing) {
+    return (
+      <div className="card">
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center">
+          Story Details
+        </h2>
+        
+        <div className="space-y-4 mb-4">
+          <div>
+            <label className="block text-white/60 text-sm mb-1">Title</label>
+            <div className="font-medium text-white text-lg">{currentTitle}</div>
+          </div>
+          
+          {currentDescription && (
+            <div>
+              <label className="block text-white/60 text-sm mb-1">Description</label>
+              <div className="text-white/90">{currentDescription}</div>
+            </div>
+          )}
+        </div>
+        
+        <Button
+          onClick={() => setEditing(true)}
+          variant="ghost"
+          size="sm"
+          icon={<Edit className="w-4 h-4" />}
+        >
+          Edit Details
+        </Button>
+      </div>
+    );
+  }
+  
   return (
     <div className="card">
-      <div className="flex items-center space-x-2 mb-6">
-        <Sparkles className="w-6 h-6 text-fantasy-gold" />
-        <h3 className="fantasy-title text-xl font-bold text-white">
-          Create Your Story
-        </h3>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-xl font-bold text-white mb-4">Create Story Details</h2>
+      
+      <div className="space-y-4">
         <div>
           <label className="block text-white font-medium mb-2">
-            Story Title *
+            Story Title
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="input-field"
-            placeholder="Enter an epic title..."
+            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white 
+                     placeholder-white/60 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 
+                     transition-all duration-200 outline-none border-white/30"
+            placeholder="Enter a captivating title..."
             maxLength={100}
-            required
           />
         </div>
-
+        
         <div>
           <label className="block text-white font-medium mb-2">
-            Story Description
+            Description (Optional)
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="input-field resize-none"
+            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white 
+                     placeholder-white/60 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 
+                     transition-all duration-200 outline-none border-white/30"
+            placeholder="Set the scene for your story..."
             rows={4}
-            placeholder="Set the scene for your adventure..."
             maxLength={500}
           />
         </div>
-
-        <button
-          type="submit"
-          disabled={!title.trim() || isLoading}
-          className="w-full btn-primary flex items-center justify-center space-x-2"
+        
+        <Button
+          onClick={handleSave}
+          fullWidth
+          isLoading={isLoading}
+          icon={<Save className="w-4 h-4" />}
         >
-          <Save className="w-4 h-4" />
-          <span>{isLoading ? 'Saving...' : 'Save Story Details'}</span>
-        </button>
-      </form>
+          Save Story Details
+        </Button>
+      </div>
     </div>
   );
 };

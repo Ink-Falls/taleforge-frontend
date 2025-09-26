@@ -1,76 +1,86 @@
-// src/components/game/ChatInput.jsx
 import React, { useState } from 'react';
-import { Send, Zap } from 'lucide-react';
+import Button from '../common/Button';
+import { Send, Sparkles } from 'lucide-react';
 
-const ChatInput = ({ onSendMessage, disabled, currentPlayer }) => {
+const ChatInput = ({ onSendMessage, disabled, currentRole }) => {
   const [message, setMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (message.trim() && !disabled) {
-      setIsTyping(true);
-      onSendMessage(message.trim(), 'REGULAR');
+  const [sending, setSending] = useState(false);
+  const [isTwist, setIsTwist] = useState(false);
+  
+  const handleSend = async () => {
+    if (!message.trim()) return;
+    
+    setSending(true);
+    try {
+      await onSendMessage(message, isTwist ? 'TWIST' : 'REGULAR');
       setMessage('');
-      setTimeout(() => setIsTyping(false), 500);
+      setIsTwist(false);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setSending(false);
     }
   };
-
-  const handleTwistSubmit = () => {
-    if (message.trim() && !disabled) {
-      setIsTyping(true);
-      onSendMessage(message.trim(), 'TWIST');
-      setMessage('');
-      setTimeout(() => setIsTyping(false), 500);
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   };
-
-  if (disabled) {
-    return (
-      <div className="p-4 bg-gray-500/20 rounded-lg border border-gray-500/40">
-        <p className="text-center text-gray-400">Story has been completed</p>
-      </div>
-    );
-  }
-
+  
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex space-x-2">
-        <input
-          type="text"
+    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+      <div className="flex items-start">
+        {/* Role/Character indicator */}
+        <div className="bg-white/10 px-3 py-2 rounded-l-lg text-white/70 flex items-center">
+          {currentRole === 'PROTAGONIST' ? '🗡️' : 
+           currentRole === 'ANTAGONIST' ? '👹' :
+           currentRole === 'NARRATOR' ? '📚' : '👤'}
+        </div>
+        
+        {/* Text input */}
+        <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          className="flex-1 input-field"
-          placeholder="Continue the story..."
-          maxLength={500}
-          disabled={isTyping}
+          onKeyPress={handleKeyPress}
+          placeholder="Type your story contribution..."
+          className="flex-grow bg-white/10 border-0 px-4 py-2 text-white resize-none focus:ring-0 focus:outline-none"
+          rows={2}
+          disabled={disabled || sending}
         />
-        <button
-          type="submit"
-          disabled={!message.trim() || isTyping}
-          className="btn-primary px-4 flex items-center space-x-2"
-        >
-          <Send className="w-4 h-4" />
-          <span className="hidden sm:inline">Send</span>
-        </button>
-      </div>
-
-      <div className="flex justify-between items-center">
-        <button
-          type="button"
-          onClick={handleTwistSubmit}
-          disabled={!message.trim() || isTyping}
-          className="btn-secondary text-sm flex items-center space-x-1"
-        >
-          <Zap className="w-3 h-3" />
-          <span>Send as Big Twist</span>
-        </button>
         
-        <div className="text-xs text-white/60">
-          {message.length}/500 characters
+        {/* Action buttons */}
+        <div className="flex">
+          <Button
+            variant={isTwist ? 'secondary' : 'ghost'}
+            className="rounded-none"
+            onClick={() => setIsTwist(!isTwist)}
+            disabled={disabled || sending}
+            icon={<Sparkles className="w-4 h-4" />}
+          >
+            Twist
+          </Button>
+          
+          <Button
+            variant="primary"
+            className="rounded-l-none rounded-r-lg"
+            onClick={handleSend}
+            disabled={!message.trim() || disabled || sending}
+            isLoading={sending}
+            icon={<Send className="w-4 h-4" />}
+          >
+            Send
+          </Button>
         </div>
       </div>
-    </form>
+      
+      {isTwist && (
+        <div className="mt-2 p-2 bg-secondary/20 border border-secondary/30 rounded text-white/90 text-sm">
+          <span className="font-bold">Plot Twist Mode:</span> Your next message will be highlighted as a major twist in the story!
+        </div>
+      )}
+    </div>
   );
 };
 

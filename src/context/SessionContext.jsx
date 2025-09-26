@@ -1,3 +1,4 @@
+// src/context/SessionContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const SessionContext = createContext();
@@ -11,53 +12,66 @@ export const useSession = () => {
 };
 
 export const SessionProvider = ({ children }) => {
-  const [playerId, setPlayerId] = useState(localStorage.getItem('playerId') || '');
-  const [playerName, setPlayerName] = useState(localStorage.getItem('playerName') || '');
-  const [currentRoomCode, setCurrentRoomCode] = useState(localStorage.getItem('currentRoomCode') || '');
-
+  // Get initial values from localStorage
+  const [playerId, setPlayerId] = useState(() => {
+    return localStorage.getItem('taleforge_playerId') || null;
+  });
+  
+  const [playerName, setPlayerName] = useState(() => {
+    return localStorage.getItem('taleforge_playerName') || null;
+  });
+  
+  const [currentRoomCode, setCurrentRoomCode] = useState(() => {
+    return localStorage.getItem('taleforge_roomCode') || null;
+  });
+  
+  // Update localStorage when session values change
   useEffect(() => {
     if (playerId) {
-      localStorage.setItem('playerId', playerId);
+      localStorage.setItem('taleforge_playerId', playerId);
     } else {
-      localStorage.removeItem('playerId');
+      localStorage.removeItem('taleforge_playerId');
     }
   }, [playerId]);
-
+  
   useEffect(() => {
     if (playerName) {
-      localStorage.setItem('playerName', playerName);
+      localStorage.setItem('taleforge_playerName', playerName);
     } else {
-      localStorage.removeItem('playerName');
+      localStorage.removeItem('taleforge_playerName');
     }
   }, [playerName]);
-
+  
   useEffect(() => {
     if (currentRoomCode) {
-      localStorage.setItem('currentRoomCode', currentRoomCode);
+      localStorage.setItem('taleforge_roomCode', currentRoomCode);
     } else {
-      localStorage.removeItem('currentRoomCode');
+      localStorage.removeItem('taleforge_roomCode');
     }
   }, [currentRoomCode]);
-
+  
   const clearSession = () => {
-    setPlayerId('');
-    setPlayerName('');
-    setCurrentRoomCode('');
-    localStorage.removeItem('playerId');
-    localStorage.removeItem('playerName');
-    localStorage.removeItem('currentRoomCode');
+    setPlayerId(null);
+    setPlayerName(null);
+    setCurrentRoomCode(null);
+    // Clear all related localStorage items
+    localStorage.removeItem('taleforge_playerId');
+    localStorage.removeItem('taleforge_playerName');
+    localStorage.removeItem('taleforge_roomCode');
   };
-
+  
   return (
-    <SessionContext.Provider value={{
-      playerId,
-      setPlayerId,
-      playerName,
-      setPlayerName,
-      currentRoomCode,
-      setCurrentRoomCode,
-      clearSession
-    }}>
+    <SessionContext.Provider
+      value={{
+        playerId,
+        setPlayerId,
+        playerName,
+        setPlayerName,
+        currentRoomCode,
+        setCurrentRoomCode,
+        clearSession,
+      }}
+    >
       {children}
     </SessionContext.Provider>
   );

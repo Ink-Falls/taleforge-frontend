@@ -1,76 +1,40 @@
-// src/components/common/Timer.jsx
-import React, { useState, useEffect } from 'react';
-import { Clock, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
-const Timer = ({ remainingTime, totalTime, isCompleted }) => {
-  const [timeLeft, setTimeLeft] = useState(remainingTime);
-
+const Timer = ({ timeRemaining, totalTime }) => {
+  const [progress, setProgress] = useState(100);
+  
   useEffect(() => {
-    setTimeLeft(remainingTime);
-  }, [remainingTime]);
+    // Calculate progress as percentage
+    const percentage = (timeRemaining / totalTime) * 100;
+    setProgress(Math.max(0, Math.min(100, percentage)));
+  }, [timeRemaining, totalTime]);
 
+  // Format time for display (MM:SS)
   const formatTime = (seconds) => {
-    if (seconds <= 0) return '00:00';
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getProgressPercentage = () => {
-    if (!totalTime) return 0;
-    return Math.max(0, (timeLeft / totalTime) * 100);
+  // Get color based on remaining time
+  const getColor = () => {
+    if (progress > 50) return 'bg-green-500';
+    if (progress > 20) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
-
-  const getTimerColor = () => {
-    if (isCompleted) return 'text-purple-400';
-    if (timeLeft <= 60) return 'text-red-400';
-    if (timeLeft <= 300) return 'text-yellow-400';
-    return 'text-green-400';
-  };
-
-  const getProgressColor = () => {
-    if (isCompleted) return 'bg-purple-500';
-    if (timeLeft <= 60) return 'bg-red-500';
-    if (timeLeft <= 300) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  if (isCompleted) {
-    return (
-      <div className="text-center">
-        <div className="flex items-center justify-center space-x-2 mb-2">
-          <Clock className="w-5 h-5 text-purple-400" />
-          <span className="text-purple-400 font-bold">Story Complete!</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="text-center">
-      <div className="flex items-center justify-center space-x-2 mb-2">
-        <Clock className={`w-5 h-5 ${getTimerColor()}`} />
-        <span className={`font-bold text-lg ${getTimerColor()}`}>
-          {formatTime(timeLeft)}
-        </span>
-        {timeLeft <= 60 && (
-          <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
-        )}
+    <div>
+      <div className="flex justify-between items-center mb-1 text-sm">
+        <span className="text-white/70">Time Remaining</span>
+        <span className="text-white font-medium">{formatTime(timeRemaining)}</span>
       </div>
-      
-      {/* Progress Bar */}
-      <div className="w-32 h-2 bg-white/20 rounded-full overflow-hidden">
-        <div
-          className={`h-full ${getProgressColor()} transition-all duration-1000 ease-linear`}
-          style={{ width: `${getProgressPercentage()}%` }}
+      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+        <div 
+          className={`h-full transition-all duration-1000 ${getColor()}`}
+          style={{ width: `${progress}%` }}
         />
       </div>
-      
-      {timeLeft <= 60 && timeLeft > 0 && (
-        <p className="text-xs text-red-400 mt-1 animate-pulse">
-          Time running out!
-        </p>
-      )}
     </div>
   );
 };
