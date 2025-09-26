@@ -2,7 +2,7 @@ import apiClient from './index';
 
 export const gameApi = {
   startRoleAssignment: async (roomCode) => {
-    const response = await apiClient.post(`/api/stories/${roomCode}/start-role-assignment`);
+    const response = await apiClient.post(`/api/stories/${roomCode}/start-roles`);
     return response.data;
   },
 

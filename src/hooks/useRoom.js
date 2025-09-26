@@ -76,6 +76,7 @@ export const useRoom = (roomCode) => {
       
       switch (actionType) {
         case 'START_ROLE_ASSIGNMENT':
+          console.log('Attempting to start role assignment for room:', roomCode);
           await gameApi.startRoleAssignment(roomCode);
           break;
         
@@ -101,7 +102,14 @@ export const useRoom = (roomCode) => {
       return true;
     } catch (error) {
       console.error(`Error performing action ${actionType}:`, error);
-      return false;
+      // Provide more descriptive error message based on the response
+      const errorMessage = 
+        error.response?.data?.message || 
+        error.response?.data?.error || 
+        `Failed to perform ${actionType.toLowerCase().replace('_', ' ')}`;
+      
+      // Re-throw with better message so the UI can handle it
+      throw new Error(errorMessage);
     }
   }, [roomCode, refreshRoom]);
 

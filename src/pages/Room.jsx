@@ -52,6 +52,15 @@ const RoomContent = () => {
     refreshRoom();
   };
 
+  // Expose the refresh function to window for other components to access
+  useEffect(() => {
+    window.refreshRoom = refreshRoom;
+    return () => {
+      // Clean up on component unmount
+      delete window.refreshRoom;
+    };
+  }, [refreshRoom]);
+
   // Check for required session data
   if (!playerId) {
     return (

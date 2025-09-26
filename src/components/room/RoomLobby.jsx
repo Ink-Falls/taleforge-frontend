@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Clock, Edit, Check } from 'lucide-react';
+import { Users, Clock, Edit, Check, RefreshCw } from 'lucide-react';
 import TitleEditor from '../game/TitleEditor';
 import LeaveRoom from './LeaveRoom';
 
@@ -14,6 +14,9 @@ const RoomLobby = ({
 }) => {
   const [titleSubmitting, setTitleSubmitting] = useState(false);
   const [characterSubmitting, setCharacterSubmitting] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Add detailed debug log to check roomData structure
   console.log("RoomLobby - roomData:", roomData);
@@ -89,6 +92,44 @@ const RoomLobby = ({
     }
   };
   
+  // Handle start role assignment with proper error handling
+  const handleStartRoleAssignment = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    
+    try {
+      await onStartRoleAssignment();
+    } catch (err) {
+      console.error("Failed to start role assignment:", err);
+      setActionError("Failed to start role assignment. Please try again.");
+      
+      // Auto-dismiss error after 5 seconds
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle refresh button click
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // If the parent component provided a refresh function, call it
+      if (typeof window.refreshRoom === 'function') {
+        await window.refreshRoom();
+      } else {
+        // Otherwise, just reload the page as a fallback
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Error refreshing room data:', err);
+    } finally {
+      setTimeout(() => {
+        setRefreshing(false);
+      }, 500); // Show the spinner for at least 500ms
+    }
+  };
+
   return (
     <div>
       {/* Room Header */}
@@ -118,6 +159,13 @@ const RoomLobby = ({
           <span className="text-white font-medium">{status}</span>
         </div>
       </div>
+      
+      {/* Show error message if any action fails */}
+      {actionError && (
+        <div className="bg-red-500/20 border border-red-500/40 text-red-200 p-3 rounded-lg mb-6">
+          {actionError}
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Players and Controls */}
@@ -210,10 +258,17 @@ const RoomLobby = ({
                   <div className="flex justify-end">
                     <button 
                       className="btn-primary"
-                      onClick={onStartRoleAssignment}
-                      disabled={titleSubmitting}
+                      onClick={handleStartRoleAssignment}
+                      disabled={titleSubmitting || actionLoading}
                     >
-                      Start Role Assignment
+                      {actionLoading ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Starting...
+                        </>
+                      ) : (
+                        "Start Role Assignment"
+                      )}
                     </button>
                   </div>
                 )}
@@ -360,7 +415,21 @@ const RoomLobby = ({
           
           {/* Story Info */}
           <div className="card">
-            <h2 className="text-xl font-bold text-white mb-4">Story Information</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Story Information</h2>
+              
+              {/* Add refresh button (only for non-owners) */}
+              {!isOwner && (
+                <button
+                  onClick={handleRefresh}
+                  className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors"
+                  disabled={refreshing}
+                  title="Refresh room data"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+            </div>
             
             <div className="space-y-3">
               <div>
@@ -391,6 +460,14 @@ const RoomLobby = ({
                 </div>
               </div>
             </div>
+            
+            {/* Add a notice for non-owners */}
+            {!isOwner && isCreated && (
+              <div className="mt-4 p-2 bg-white/5 rounded text-white/70 text-sm flex items-center">
+                <RefreshCw className="w-3.5 h-3.5 mr-2 text-primary-400" />
+                <span>Waiting for the room creator to set up the story...</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
