@@ -65,7 +65,15 @@ export const useRoom = (roomCode) => {
   useEffect(() => {
     if (roomStatus) {
       console.log('Room status updated via WebSocket:', roomStatus);
+      
+      // If the room status has changed, refresh data and potentially redirect
       refreshRoom();
+      
+      // If the status changes to STORYTELLING, make sure all players
+      // (not just the creator) get properly transitioned to storytelling mode
+      if (roomStatus === 'STORYTELLING') {
+        console.log('Storytelling phase started via WebSocket notification');
+      }
     }
   }, [roomStatus, refreshRoom]);
 

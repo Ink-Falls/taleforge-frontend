@@ -28,14 +28,41 @@ const Storytelling = ({
     }
   }, [twist]);
   
+  // Log messages for debugging
+  useEffect(() => {
+    console.log('Storytelling - Messages updated:', messages);
+  }, [messages]);
+  
+  // For local message preview while waiting for server response
+  const [localMessages, setLocalMessages] = useState([]);
+  
   // Auto-scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, localMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  
+  // Add a helper function to safely get room data properties
+  const getRoomData = () => {
+    // If roomData has a 'room' property, use that
+    if (roomData?.room) {
+      return roomData.room;
+    }
+    
+    // If roomData itself has properties like duration, status, etc. use roomData directly
+    if (roomData?.duration || roomData?.roomCode || roomData?.status) {
+      return roomData;
+    }
+    
+    // Fallback to an empty object with default values
+    return { duration: 1200, roomCode: '' };
+  };
+  
+  // Get room data using the helper function
+  const room = getRoomData();
   
   // Format remaining time for display
   const formatTime = (seconds) => {
@@ -45,19 +72,43 @@ const Storytelling = ({
   };
   
   // Get remaining time from timer or default
-  const remainingTime = timer ? timer.remainingTime : roomData.room.duration;
-  const totalTime = timer ? timer.totalTime : roomData.room.duration;
+  const remainingTime = timer ? timer.remainingTime : room.duration;
+  const totalTime = timer ? timer.totalTime : room.duration;
   const timeRemaining = formatTime(remainingTime);
-  const progress = (remainingTime / totalTime) * 100;
+  const progress = totalTime > 0 ? (remainingTime / totalTime) * 100 : 100;
   
   const handleSendMessage = async () => {
     if (!message.trim() || sending) return;
     
+    // Create a temporary message to show immediately
+    const tempMessage = {
+      id: `temp-${Date.now()}`,
+      content: message,
+      messageType: isTwist ? 'TWIST' : 'REGULAR',
+      senderName: currentPlayer?.playerName || 'You',
+      senderRole: currentPlayer?.role,
+      senderId: currentPlayer?.id,
+      timestamp: new Date().toISOString(),
+      isTemp: true // Flag to identify this as a temporary message
+    };
+    
+    // Add to local messages
+    setLocalMessages(prev => [...prev, tempMessage]);
+    
     setSending(true);
     try {
-      await onSendMessage(message, isTwist ? 'TWIST' : 'REGULAR');
+      // Clear input field immediately for better UX
+      const sentContent = message;
+      const sentType = isTwist ? 'TWIST' : 'REGULAR';
       setMessage('');
       setIsTwist(false);
+      
+      await onSendMessage(sentContent, sentType);
+      
+      // Remove the temporary message when it's confirmed
+      setTimeout(() => {
+        setLocalMessages(prev => prev.filter(m => m.id !== tempMessage.id));
+      }, 2000);
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -84,19 +135,29 @@ const Storytelling = ({
     }
   };
 
+  // Combine server messages and local temporary messages
+  const allMessages = [...messages, ...localMessages.filter(m => 
+    // Only include local messages that don't have matching server messages
+    !messages.some(serverMsg => 
+      (serverMsg.content === m.content && 
+       serverMsg.senderId === m.senderId &&
+       serverMsg.messageType === m.messageType)
+    )
+  )];
+
   return (
     <div>
       {/* Room Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="fantasy-title text-3xl font-bold text-white">
-            {roomData.room.title || `Room: ${roomData.room.roomCode}`}
+            {room.title || `Room: ${room.roomCode}`}
           </h1>
-          {roomData.room.description && (
-            <p className="text-white/70 mt-1">{roomData.room.description}</p>
+          {room.description && (
+            <p className="text-white/70 mt-1">{room.description}</p>
           )}
         </div>
-        <LeaveRoom roomCode={roomData.room.roomCode} />
+        <LeaveRoom roomCode={room.roomCode} />
       </div>
       
       {/* Status Bar */}
@@ -146,16 +207,18 @@ const Storytelling = ({
           
           {/* Messages */}
           <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4 h-[60vh] overflow-y-auto">
-            {messages.length === 0 && (
+            {allMessages.length === 0 && (
               <div className="text-center py-8 text-white/50">
                 <p>No messages yet. Start the story!</p>
               </div>
             )}
             
-            {messages.map((msg, idx) => (
+            {allMessages.map((msg, idx) => (
               <div 
-                key={msg.id || idx} 
+                key={msg.id || `msg-${idx}`} 
                 className={`p-3 rounded-lg mb-4 ${
+                  msg.isTemp ? 'opacity-60 border border-dashed border-white/30 ' : ''
+                }${
                   msg.messageType === 'SYSTEM' 
                     ? 'bg-white/10 text-yellow-200 border-l-4 border-yellow-500' : 
                   msg.messageType === 'TWIST' 
@@ -263,7 +326,7 @@ const Storytelling = ({
             <h2 className="text-lg font-bold text-white mb-4">Characters</h2>
             
             <div className="space-y-3">
-              {roomData.players.map(player => (
+              {roomData.players?.map(player => (
                 <div 
                   key={player.id} 
                   className={`p-3 rounded-lg ${
@@ -299,11 +362,11 @@ const Storytelling = ({
               <div className="space-y-2 text-sm">
                 <div>
                   <span className="text-white/60">Genre:</span>{' '}
-                  <span className="text-white">{formatGenre(roomData.room.genre)}</span>
+                  <span className="text-white">{formatGenre(room.genre)}</span>
                 </div>
                 <div>
                   <span className="text-white/60">Duration:</span>{' '}
-                  <span className="text-white">{Math.floor(roomData.room.duration / 60)} minutes</span>
+                  <span className="text-white">{Math.floor(room.duration / 60)} minutes</span>
                 </div>
               </div>
             </div>

@@ -12,7 +12,8 @@ export const gameApi = {
   },
 
   startStorytelling: async (roomCode) => {
-    const response = await apiClient.post(`/api/stories/${roomCode}/start-storytelling`);
+    // Fix the endpoint to match backend controller
+    const response = await apiClient.post(`/api/stories/${roomCode}/start-story`);
     return response.data;
   },
 

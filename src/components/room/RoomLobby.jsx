@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Users, Clock, Edit, Check, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Clock, Edit, Check, RefreshCw, ArrowRight } from 'lucide-react';
 import TitleEditor from '../game/TitleEditor';
 import LeaveRoom from './LeaveRoom';
 
@@ -9,6 +9,7 @@ const RoomLobby = ({
   onStartRoleAssignment,
   onUpdateTitle,
   onUpdateCharacter,
+  onAssignRoles,
   onStartStorytelling,
   isConnected
 }) => {
@@ -17,6 +18,7 @@ const RoomLobby = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [rolesAssigned, setRolesAssigned] = useState(false);
   
   // Add detailed debug log to check roomData structure
   console.log("RoomLobby - roomData:", roomData);
@@ -62,6 +64,16 @@ const RoomLobby = ({
   const status = room.status || roomData.status || 'CREATED'; // Default to CREATED if no status
   const isCreated = status === 'CREATED';
   const isRoleAssignment = status === 'ROLE_ASSIGNMENT';
+  
+  // Check if players have roles assigned (which happens after clicking "Assign Roles")
+  const hasRolesAssigned = roomData.players?.every(p => p.role) || false;
+  
+  // Update rolesAssigned state when roles are detected
+  useEffect(() => {
+    if (hasRolesAssigned && isRoleAssignment) {
+      setRolesAssigned(true);
+    }
+  }, [hasRolesAssigned, isRoleAssignment]);
   
   // Check if all players have characters (for enabling Start Storytelling)
   const allPlayersHaveCharacters = roomData.players?.every(p => 
@@ -110,6 +122,44 @@ const RoomLobby = ({
     }
   };
 
+  // Handle role assignment with proper error handling
+  const handleAssignRoles = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    
+    try {
+      await onAssignRoles();
+      setRolesAssigned(true); // Mark roles as assigned when successful
+    } catch (err) {
+      console.error("Failed to assign roles:", err);
+      setActionError("Failed to assign roles. Please try again.");
+      
+      // Auto-dismiss error after 5 seconds
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle storytelling start with proper error handling
+  const handleStartStorytelling = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    
+    try {
+      await onStartStorytelling();
+      // The websocket will handle redirecting all users once the game starts
+    } catch (err) {
+      console.error("Failed to start storytelling:", err);
+      setActionError("Failed to start storytelling. Please try again.");
+      
+      // Auto-dismiss error after 5 seconds
+      setTimeout(() => setActionError(null), 5000);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Handle refresh button click
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -134,15 +184,26 @@ const RoomLobby = ({
     <div>
       {/* Room Header */}
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="fantasy-title text-3xl font-bold text-white">
+        <div className="flex items-center">
+          <h1 className="fantasy-title text-3xl font-bold text-white mr-3">
             Room: {room.roomCode || roomData.roomCode}
           </h1>
-          <p className="text-white/70 mt-1">
-            {isCreated ? 'Setting up the story' : 'Preparing for storytelling'}
-          </p>
+          {/* Add refresh button visible to all players */}
+          <button
+            onClick={handleRefresh}
+            className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors flex items-center"
+            disabled={refreshing}
+            title="Refresh room data"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
-        <LeaveRoom roomCode={room.roomCode || roomData.roomCode} />
+        <div className="flex items-center gap-3">
+          <div className="text-white/70">
+            <span className="text-white font-medium">{status}</span>
+          </div>
+          <LeaveRoom roomCode={room.roomCode || roomData.roomCode} />
+        </div>
       </div>
       
       {/* Room Status Pills */}
@@ -283,7 +344,7 @@ const RoomLobby = ({
               
               {/* Step 2: Role Assignment */}
               <div className={`p-4 rounded-lg border ${
-                isRoleAssignment 
+                isRoleAssignment && !rolesAssigned
                   ? 'bg-primary-600/20 border-primary-600/40' 
                   : 'bg-white/5 border-white/20'
               }`}>
@@ -295,7 +356,7 @@ const RoomLobby = ({
                   Players name their characters based on assigned roles.
                 </p>
                 
-                {isRoleAssignment && (
+                {isRoleAssignment && !rolesAssigned && (
                   <div className="mb-3">
                     <div className="text-sm bg-primary-600/20 p-2 rounded border border-primary-600/30 text-white">
                       {isOwner 
@@ -305,29 +366,42 @@ const RoomLobby = ({
                   </div>
                 )}
                 
-                {isOwner && isRoleAssignment && (
+                {isOwner && isRoleAssignment && !rolesAssigned && (
                   <div className="flex justify-end">
                     <button 
                       className="btn-primary flex items-center"
-                      onClick={onStartStorytelling}
-                      disabled={!allPlayersHaveCharacters}
+                      onClick={handleAssignRoles}
+                      disabled={!allPlayersHaveCharacters || actionLoading}
                     >
-                      <Check className="w-4 h-4 mr-1" />
-                      Start Storytelling
+                      {actionLoading ? (
+                        <>
+                          <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Assigning...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 mr-1" />
+                          Assign Roles
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
                 
-                {!isOwner && isRoleAssignment && (
+                {!isOwner && isRoleAssignment && !rolesAssigned && (
                   <div className="flex justify-end items-center text-white/70 text-sm">
                     <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-primary-400 rounded-full animate-spin"></div>
-                    Waiting for room creator to start...
+                    Waiting for room creator to assign roles...
                   </div>
                 )}
               </div>
               
               {/* Step 3: Storytelling */}
-              <div className="p-4 rounded-lg border bg-white/5 border-white/20 opacity-80">
+              <div className={`p-4 rounded-lg border ${
+                rolesAssigned 
+                  ? 'bg-primary-600/20 border-primary-600/40' 
+                  : 'bg-white/5 border-white/20 opacity-80'
+              }`}>
                 <h3 className="font-bold text-white flex items-center">
                   <span className="w-6 h-6 rounded-full bg-white/20 inline-flex items-center justify-center mr-2 text-sm">3</span>
                   Storytelling
@@ -335,22 +409,47 @@ const RoomLobby = ({
                 <p className="text-white/70 text-sm mt-1 mb-3">
                   Collaborative storytelling begins once all players are ready.
                 </p>
+
+                {rolesAssigned && (
+                  <div className="mt-4">
+                    <div className="text-sm bg-green-600/20 p-2 mb-4 rounded border border-green-600/30 text-white">
+                      <Check className="w-4 h-4 inline mr-1" /> Roles have been assigned! 
+                      {isOwner 
+                        ? " You can now start the storytelling phase." 
+                        : " Waiting for the room creator to start storytelling."}
+                    </div>
+                    
+                    {/* Show Enter Storytelling Mode button only to the room creator */}
+                    {isOwner && (
+                      <button 
+                        onClick={handleStartStorytelling}
+                        className="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-lg font-bold flex items-center justify-center text-lg"
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? (
+                          <>
+                            <div className="w-5 h-5 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="w-5 h-5 mr-2" />
+                            Start Storytelling Phase
+                          </>
+                        )}
+                      </button>
+                    )}
+                    
+                    {/* For non-owners, show a waiting message */}
+                    {!isOwner && (
+                      <div className="flex justify-center items-center text-white/70 text-sm p-3 mt-2">
+                        <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-primary-400 rounded-full animate-spin"></div>
+                        Waiting for room creator to start storytelling...
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              
-              {/* Manual redirect info */}
-              {isRoleAssignment && (
-                <div className="mt-6 text-center">
-                  <p className="text-white/70 text-sm mb-2">
-                    Not being redirected automatically?
-                  </p>
-                  <button 
-                    className="text-white bg-primary-600/50 hover:bg-primary-600/70 px-3 py-1 rounded-md text-sm"
-                    onClick={onStartStorytelling}
-                  >
-                    Enter Storytelling Mode
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -369,7 +468,7 @@ const RoomLobby = ({
           
           {/* Character Editor (Role Assignment) */}
           {isRoleAssignment && currentPlayer?.role && (
-            <div className="card">
+            <div className="card mb-6">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center">
                 <Users className="w-5 h-5 mr-2" /> Your Role
               </h2>
@@ -417,18 +516,6 @@ const RoomLobby = ({
           <div className="card">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">Story Information</h2>
-              
-              {/* Add refresh button (only for non-owners) */}
-              {!isOwner && (
-                <button
-                  onClick={handleRefresh}
-                  className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors"
-                  disabled={refreshing}
-                  title="Refresh room data"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
-              )}
             </div>
             
             <div className="space-y-3">

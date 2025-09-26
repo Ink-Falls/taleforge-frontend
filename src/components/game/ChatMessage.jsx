@@ -1,9 +1,14 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 
-const ChatMessage = ({ message, isCurrentUser }) => {
+const ChatMessage = ({ message, isCurrentUser, isTemp = false }) => {
   // Define message styles based on type and sender
   const getMessageStyles = () => {
+    // Add temp message style
+    if (isTemp) {
+      return 'bg-white/5 border border-dashed border-white/30';
+    }
+    
     // System message
     if (message.messageType === 'SYSTEM') {
       return 'bg-white/10 text-yellow-200 border-l-4 border-yellow-500';
@@ -51,7 +56,7 @@ const ChatMessage = ({ message, isCurrentUser }) => {
   };
 
   return (
-    <div className={`p-3 rounded-lg mb-4 ${getMessageStyles()}`}>
+    <div className={`p-3 rounded-lg mb-4 ${getMessageStyles()} ${isTemp ? 'opacity-60' : ''}`}>
       {/* Message Header */}
       <div className="flex justify-between items-center mb-1">
         <div className="flex items-center">
@@ -65,6 +70,7 @@ const ChatMessage = ({ message, isCurrentUser }) => {
                   <span className="bg-purple-500/40 text-xs px-2 py-0.5 rounded mr-1">TWIST</span>
                 )}
                 {message.senderName || 'Unknown'}
+                {isTemp && <span className="text-xs ml-1 text-white/60">(Sending...)</span>}
               </span>
               {message.senderRole && message.messageType !== 'SYSTEM' && (
                 <span className="text-xs text-white/60 ml-2">

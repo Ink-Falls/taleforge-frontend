@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+import SockJS from 'sockjs';
 import '../utils/socket-polyfill';
 
 export const useWebSocket = (roomCode) => {
@@ -41,6 +41,11 @@ export const useWebSocket = (roomCode) => {
     }
   }, []);
 
+  // Add a debugging function for messages
+  const logMessageReceived = (message, source) => {
+    console.log(`WebSocket: Message received from ${source}:`, message);
+  };
+  
   // Connect function
   const connect = useCallback(() => {
     if (!roomCode || isConnected || connectingRef.current || clientRef.current) {
@@ -66,7 +71,16 @@ export const useWebSocket = (roomCode) => {
             client.subscribe(`/topic/room/${roomCode}/messages`, (message) => {
               try {
                 const messageData = JSON.parse(message.body);
-                setMessages(prev => [...prev, messageData]);
+                logMessageReceived(messageData, 'room messages topic');
+                
+                // Use a function to update state to ensure we always have the latest messages
+                setMessages(prev => {
+                  // Check if we already have this message (by id or other unique identifier)
+                  if (messageData.id && prev.some(m => m.id === messageData.id)) {
+                    return prev;
+                  }
+                  return [...prev, messageData];
+                });
               } catch (e) {
                 console.error('Error parsing message data', e);
               }
@@ -141,7 +155,8 @@ export const useWebSocket = (roomCode) => {
     }
     
     try {
-      const playerId = localStorage.getItem('taleforge_playerId');
+      // Use sessionStorage instead of localStorage for consistency with the rest of the app
+      const playerId = sessionStorage.getItem('taleforge_playerId');
       if (!playerId) {
         console.error('Cannot send message: No player ID found');
         return false;
@@ -152,6 +167,8 @@ export const useWebSocket = (roomCode) => {
         messageType,
         playerId
       };
+      
+      console.log('WebSocket: Sending message:', message);
       
       clientRef.current.publish({
         destination: `/app/room/${roomCode}/send`,

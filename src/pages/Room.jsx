@@ -55,8 +55,9 @@ const RoomContent = () => {
   // Expose the refresh function to window for other components to access
   useEffect(() => {
     window.refreshRoom = refreshRoom;
+    
+    // Clean up on component unmount
     return () => {
-      // Clean up on component unmount
       delete window.refreshRoom;
     };
   }, [refreshRoom]);
@@ -160,7 +161,14 @@ const RoomContent = () => {
     if (!roomData) return null;
     
     // Debug the roomData object structure more thoroughly
-    console.log('Room render - full roomData:', JSON.stringify(roomData));
+    console.log('Room render - full roomData:', roomData);
+    console.log('Room data structure check:', {
+      hasRoomProperty: !!roomData.room,
+      directDuration: roomData.duration,
+      nestedDuration: roomData.room?.duration,
+      directStatus: roomData.status,
+      nestedStatus: roomData.room?.status
+    });
     
     // Try multiple possible paths to get the status
     const status = roomData.status || 
