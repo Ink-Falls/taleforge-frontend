@@ -1,65 +1,78 @@
-// src/context/SessionContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const SessionContext = createContext();
 
 export const useSession = () => {
-  const context = useContext(SessionContext);
-  if (!context) {
-    throw new Error('useSession must be used within a SessionProvider');
-  }
-  return context;
+  return useContext(SessionContext);
 };
 
 export const SessionProvider = ({ children }) => {
-  // Get initial values from localStorage
+  // Use consistent naming with taleforge_ prefix for all session storage items
   const [playerId, setPlayerId] = useState(() => {
-    return localStorage.getItem('taleforge_playerId') || null;
+    const storedId = sessionStorage.getItem('taleforge_playerId');
+    console.log('SessionContext init - playerId from storage:', storedId);
+    return storedId || null;
   });
-  
+
   const [playerName, setPlayerName] = useState(() => {
-    return localStorage.getItem('taleforge_playerName') || null;
+    const storedName = sessionStorage.getItem('taleforge_playerName');
+    console.log('SessionContext init - playerName from storage:', storedName);
+    return storedName || '';
   });
-  
-  const [currentRoomCode, setCurrentRoomCode] = useState(() => {
-    return localStorage.getItem('taleforge_roomCode') || null;
+
+  const [roomCode, setRoomCode] = useState(() => {
+    const storedCode = sessionStorage.getItem('taleforge_roomCode');
+    console.log('SessionContext init - roomCode from storage:', storedCode);
+    return storedCode || null;
   });
-  
-  // Update localStorage when session values change
+
+  // Sync playerId with session storage
   useEffect(() => {
+    console.log("SessionContext - Setting playerId in session:", playerId);
     if (playerId) {
-      localStorage.setItem('taleforge_playerId', playerId);
+      sessionStorage.setItem('taleforge_playerId', playerId);
     } else {
-      localStorage.removeItem('taleforge_playerId');
+      sessionStorage.removeItem('taleforge_playerId');
     }
   }, [playerId]);
-  
+
+  // Sync playerName with session storage
   useEffect(() => {
+    console.log("SessionContext - Setting playerName in session:", playerName);
     if (playerName) {
-      localStorage.setItem('taleforge_playerName', playerName);
+      sessionStorage.setItem('taleforge_playerName', playerName);
     } else {
-      localStorage.removeItem('taleforge_playerName');
+      sessionStorage.removeItem('taleforge_playerName');
     }
   }, [playerName]);
-  
+
+  // Sync roomCode with session storage
   useEffect(() => {
-    if (currentRoomCode) {
-      localStorage.setItem('taleforge_roomCode', currentRoomCode);
+    console.log("SessionContext - Setting roomCode in session:", roomCode);
+    if (roomCode) {
+      sessionStorage.setItem('taleforge_roomCode', roomCode);
     } else {
-      localStorage.removeItem('taleforge_roomCode');
+      sessionStorage.removeItem('taleforge_roomCode');
     }
-  }, [currentRoomCode]);
-  
+  }, [roomCode]);
+
+  // Enhanced clear session to be more robust
   const clearSession = () => {
+    console.log("SessionContext - Clearing session");
+    // Clear state
     setPlayerId(null);
-    setPlayerName(null);
-    setCurrentRoomCode(null);
-    // Clear all related localStorage items
-    localStorage.removeItem('taleforge_playerId');
-    localStorage.removeItem('taleforge_playerName');
-    localStorage.removeItem('taleforge_roomCode');
+    setPlayerName('');
+    setRoomCode(null);
+    
+    // Clear storage
+    sessionStorage.removeItem('taleforge_playerId');
+    sessionStorage.removeItem('taleforge_playerName');
+    sessionStorage.removeItem('taleforge_roomCode');
+    
+    // Additional cleanup if needed
+    console.log("Session cleared successfully");
   };
-  
+
   return (
     <SessionContext.Provider
       value={{
@@ -67,9 +80,9 @@ export const SessionProvider = ({ children }) => {
         setPlayerId,
         playerName,
         setPlayerName,
-        currentRoomCode,
-        setCurrentRoomCode,
-        clearSession,
+        roomCode,
+        setRoomCode,
+        clearSession
       }}
     >
       {children}

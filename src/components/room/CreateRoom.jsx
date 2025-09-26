@@ -1,4 +1,3 @@
-// src/components/room/CreateRoom.jsx
 import React, { useState } from 'react';
 import { roomApi } from '../../api/roomApi';
 import Input from '../common/Input';
@@ -7,7 +6,9 @@ import { useSession } from '../../context/SessionContext';
 import { Plus, Clock } from 'lucide-react';
 
 const CreateRoom = ({ onSuccess }) => {
-  const { setPlayerId, setPlayerName, setCurrentRoomCode } = useSession();
+  // Get session functions from context with the correct names
+  const { setPlayerId, setPlayerName, setRoomCode } = useSession();
+  
   const [formData, setFormData] = useState({
     playerName: '',
     genre: 'FANTASY',
@@ -31,10 +32,26 @@ const CreateRoom = ({ onSuccess }) => {
       const data = { ...formData, duration: formData.duration * 60 };
       const response = await roomApi.createRoom(data);
       
-      // Save session data
-      setPlayerId(response.playerId);
+      console.log("Room created response:", response);
+
+      // Find the creator player (the one with isTitleCreator=true)
+      const creatorPlayer = response.players.find(p => p.isTitleCreator === true);
+      
+      if (!creatorPlayer) {
+        throw new Error('Could not identify player in the response');
+      }
+      
+      // Store values in sessionStorage with the taleforge_ prefix
+      sessionStorage.setItem('taleforge_playerId', creatorPlayer.id);
+      sessionStorage.setItem('taleforge_playerName', formData.playerName);
+      sessionStorage.setItem('taleforge_roomCode', response.roomCode);
+      
+      // Use the correct function names
+      setPlayerId(creatorPlayer.id);
       setPlayerName(formData.playerName);
-      setCurrentRoomCode(response.roomCode);
+      setRoomCode(response.roomCode);
+      
+      console.log('Room created successfully. Player ID:', creatorPlayer.id);
       
       // Notify parent component
       onSuccess(response.roomCode);

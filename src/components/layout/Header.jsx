@@ -6,7 +6,7 @@ import { useSession } from '../../context/SessionContext';
 import Button from '../common/Button';
 
 const Header = () => {
-  const { currentRoomCode, clearSession } = useSession();
+  const { roomCode, clearSession } = useSession();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -29,15 +29,15 @@ const Header = () => {
         </Link>
 
         <div className="flex items-center space-x-4">
-          {currentRoomCode && (
+          {roomCode && (
             <>
               <div className="hidden md:flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-md">
                 <span className="text-sm text-white/70">Room:</span>
                 <Link
-                  to={`/room/${currentRoomCode}`}
+                  to={`/room/${roomCode}`}
                   className="font-mono text-sm font-medium text-white hover:text-primary-300 transition-colors"
                 >
-                  {currentRoomCode}
+                  {roomCode}
                 </Link>
               </div>
               <Button

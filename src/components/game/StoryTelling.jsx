@@ -1,15 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ChatMessage from './ChatMessage';
-import ChatInput from './ChatInput';
-import Timer from '../common/Timer';
-import TwistNotification from './TwistNotification';
+import { Users, Clock, AlertTriangle, Check, Download, Send, Sparkles } from 'lucide-react';
 import LeaveRoom from '../room/LeaveRoom';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import { Users, Clock, AlertTriangle, Check, Download } from 'lucide-react';
 
-const StoryTelling = ({ 
+const Storytelling = ({ 
   messages, 
   timer, 
   twist, 
@@ -18,12 +11,14 @@ const StoryTelling = ({
   onSendMessage, 
   onCompleteStory 
 }) => {
+  const [message, setMessage] = useState('');
+  const [isTwist, setIsTwist] = useState(false);
   const [showTwist, setShowTwist] = useState(false);
   const [twistContent, setTwistContent] = useState(null);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
-  const navigate = useNavigate();
   
   // Show twist notification when a new twist arrives
   useEffect(() => {
@@ -55,8 +50,26 @@ const StoryTelling = ({
   const timeRemaining = formatTime(remainingTime);
   const progress = (remainingTime / totalTime) * 100;
   
-  const handleSendMessage = (content, messageType) => {
-    onSendMessage(content, messageType);
+  const handleSendMessage = async () => {
+    if (!message.trim() || sending) return;
+    
+    setSending(true);
+    try {
+      await onSendMessage(message, isTwist ? 'TWIST' : 'REGULAR');
+      setMessage('');
+      setIsTwist(false);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setSending(false);
+    }
+  };
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
   
   const handleCompleteStory = async () => {
@@ -101,14 +114,13 @@ const StoryTelling = ({
         
         {/* Complete button (visible only to room creator) */}
         {currentPlayer?.isTitleCreator && (
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
+            className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded flex items-center"
             onClick={() => setShowCompleteConfirm(true)}
-            icon={<Check className="w-4 h-4" />}
           >
+            <Check className="w-4 h-4 mr-1" />
             Complete Story
-          </Button>
+          </button>
         )}
       </div>
 
@@ -117,10 +129,19 @@ const StoryTelling = ({
         <div className="lg:col-span-3">
           {/* Timer Bar */}
           <div className="mb-4">
-            <Timer 
-              timeRemaining={remainingTime} 
-              totalTime={totalTime} 
-            />
+            <div className="flex justify-between items-center mb-1 text-sm">
+              <span className="text-white/70">Time Remaining</span>
+              <span className="text-white font-medium">{timeRemaining}</span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${
+                  progress > 50 ? 'bg-green-500' : 
+                  progress > 20 ? 'bg-yellow-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
           
           {/* Messages */}
@@ -132,21 +153,108 @@ const StoryTelling = ({
             )}
             
             {messages.map((msg, idx) => (
-              <ChatMessage 
-                key={msg.id || idx}
-                message={msg}
-                isCurrentUser={msg.senderId === currentPlayer?.id}
-              />
+              <div 
+                key={msg.id || idx} 
+                className={`p-3 rounded-lg mb-4 ${
+                  msg.messageType === 'SYSTEM' 
+                    ? 'bg-white/10 text-yellow-200 border-l-4 border-yellow-500' : 
+                  msg.messageType === 'TWIST' 
+                    ? 'bg-purple-900/30 border-l-4 border-purple-500 text-white' :
+                    msg.senderId === currentPlayer?.id
+                      ? 'bg-primary-900/30 border-l-4 border-primary-500 text-white'
+                      : 'bg-white/10 text-white'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <div className="flex items-center">
+                    {msg.messageType === 'SYSTEM' ? (
+                      <span className="font-bold">System</span>
+                    ) : (
+                      <>
+                        <span className="mr-1">
+                          {msg.senderRole === 'PROTAGONIST' ? '🗡️' : 
+                          msg.senderRole === 'ANTAGONIST' ? '👹' :
+                          msg.senderRole === 'NARRATOR' ? '📚' : '👤'}
+                        </span>
+                        <span className="font-bold">
+                          {msg.messageType === 'TWIST' && (
+                            <span className="bg-purple-500/40 text-xs px-2 py-0.5 rounded mr-1">TWIST</span>
+                          )}
+                          {msg.senderName || 'Unknown'}
+                        </span>
+                        {msg.senderRole && msg.messageType !== 'SYSTEM' && (
+                          <span className="text-xs text-white/60 ml-2">
+                            {msg.senderRole.replace('_', ' ')}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {msg.timestamp && (
+                    <span className="text-xs text-white/50">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
           
           {/* Chat Input */}
-          <ChatInput 
-            onSendMessage={handleSendMessage}
-            disabled={isCompleting}
-            currentRole={currentPlayer?.role}
-          />
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+            <div className="flex items-start">
+              {/* Role/Character indicator */}
+              <div className="bg-white/10 px-3 py-2 rounded-l-lg text-white/70 flex items-center">
+                {currentPlayer?.role === 'PROTAGONIST' ? '🗡️' : 
+                currentPlayer?.role === 'ANTAGONIST' ? '👹' :
+                currentPlayer?.role === 'NARRATOR' ? '📚' : '👤'}
+              </div>
+              
+              {/* Text input */}
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your story contribution..."
+                className="flex-grow bg-white/10 border-0 px-4 py-2 text-white resize-none focus:ring-0 focus:outline-none"
+                rows={2}
+                disabled={sending || isCompleting}
+              />
+              
+              {/* Action buttons */}
+              <div className="flex">
+                <button
+                  className={`px-3 py-2 ${
+                    isTwist ? 'bg-purple-700 text-white' : 'bg-white/10 text-white/70 hover:text-white hover:bg-white/20'
+                  }`}
+                  onClick={() => setIsTwist(!isTwist)}
+                  disabled={sending || isCompleting}
+                >
+                  <Sparkles className="w-4 h-4" />
+                </button>
+                
+                <button
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-r-lg flex items-center"
+                  onClick={handleSendMessage}
+                  disabled={!message.trim() || sending || isCompleting}
+                >
+                  {sending ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {isTwist && (
+              <div className="mt-2 p-2 bg-purple-900/20 border border-purple-500/30 rounded text-white/90 text-sm">
+                <span className="font-bold">Plot Twist Mode:</span> Your next message will be highlighted as a major twist in the story!
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Players Sidebar */}
@@ -203,52 +311,89 @@ const StoryTelling = ({
         </div>
       </div>
       
-      {/* Twist Notification */}
+      {/* Twist Notification Modal */}
       {showTwist && twistContent && (
-        <TwistNotification 
-          twist={twistContent} 
-          onClose={() => setShowTwist(false)} 
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-gradient-to-br from-purple-800 to-indigo-900 border border-purple-500/30 rounded-lg p-6 max-w-md w-full animate-fade-in-up shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <Sparkles className="w-5 h-5 mr-2 text-yellow-400" />
+                Plot Twist Opportunity
+              </h3>
+              <button 
+                onClick={() => setShowTwist(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <AlertTriangle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-white/90 mb-4">
+                You've been chosen to introduce a plot twist to the story!
+              </p>
+              
+              <div className="bg-purple-700/50 border border-purple-500/50 p-4 rounded-lg">
+                <p className="text-white font-medium">{twistContent.twistPrompt}</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <button 
+                className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded"
+                onClick={() => setShowTwist(false)}
+              >
+                I'll Add My Twist
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Complete Story Confirmation Modal */}
-      <Modal
-        isOpen={showCompleteConfirm}
-        onClose={() => setShowCompleteConfirm(false)}
-        title="Complete Story"
-        footer={
-          <>
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowCompleteConfirm(false)}
-              disabled={isCompleting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="primary" 
-              onClick={handleCompleteStory}
-              isLoading={isCompleting}
-            >
-              Complete Story
-            </Button>
-          </>
-        }
-      >
-        <div className="flex items-start space-x-4">
-          <div className="bg-primary-500/20 p-3 rounded-full">
-            <AlertTriangle className="w-6 h-6 text-primary-500" />
-          </div>
-          <div>
-            <p className="text-white mb-4">
-              Are you sure you want to complete the story? This will end the storytelling session for everyone.
-            </p>
-            <p className="text-white/70 text-sm">
-              You'll be able to view and download the final story after completion.
-            </p>
+      {showCompleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-white/5 backdrop-blur-md border border-white/20 rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-start space-x-4">
+              <div className="bg-primary-500/20 p-3 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-primary-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-2">Complete Story?</h3>
+                <p className="text-white/70 mb-6">
+                  Are you sure you want to complete the story? This will end the storytelling session for everyone.
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button 
+                    className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded"
+                    onClick={() => setShowCompleteConfirm(false)}
+                    disabled={isCompleting}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded flex items-center"
+                    onClick={handleCompleteStory}
+                    disabled={isCompleting}
+                  >
+                    {isCompleting ? (
+                      <>
+                        <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Completing...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Complete Story
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };
@@ -261,4 +406,4 @@ function formatGenre(genre) {
     .join(' ');
 }
 
-export default StoryTelling;
+export default Storytelling;

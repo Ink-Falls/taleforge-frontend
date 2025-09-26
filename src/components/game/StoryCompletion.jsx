@@ -1,152 +1,120 @@
-// src/components/game/StoryCompletion.jsx
-import React, { useState } from 'react';
-import { Check, Download, Share } from 'lucide-react';
-import Button from '../common/Button';
+import React from 'react';
+import { Download, BookOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const StoryCompletion = ({ roomData, messages }) => {
-  const [copied, setCopied] = useState(false);
-
-  // Filter out system messages and sort by timestamp
-  const storyMessages = messages
-    .filter(msg => msg.messageType !== 'SYSTEM')
-    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-  const generateStoryText = () => {
-    const title = `# ${roomData.room.title}\n\n`;
-    const description = roomData.room.description ? `${roomData.room.description}\n\n` : '';
+  const navigate = useNavigate();
+  
+  const handleDownload = () => {
+    // Create download link
+    const downloadUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/stories/${roomData.room.roomCode}/download`;
     
-    const players = '## Characters\n\n' + roomData.players
-      .map(p => `- **${p.characterName || p.playerName}** (${p.role.replace('_', ' ')})`)
-      .join('\n') + '\n\n';
-    
-    const story = '## Story\n\n' + storyMessages
-      .map(msg => {
-        const sender = msg.messageType === 'TWIST' 
-          ? `**${msg.senderName} (BIG TWIST)**` 
-          : `**${msg.senderName}**`;
-        return `${sender}: ${msg.content}`;
-      })
-      .join('\n\n');
-    
-    const footer = `\n\n---\n*Created with TaleForge on ${new Date(roomData.room.completedAt).toLocaleDateString()}*`;
-    
-    return title + description + players + story + footer;
-  };
-
-  const handleCopyStory = () => {
-    navigator.clipboard.writeText(generateStoryText());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownloadStory = () => {
-    const storyText = generateStoryText();
-    const blob = new Blob([storyText], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    
+    // Create a temporary link element
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `${roomData.room.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    link.href = downloadUrl;
+    link.download = `story_${roomData.room.roomCode}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-
+  
   return (
-    <div className="space-y-6">
-      <div className="card">
-        <div className="flex items-center space-x-2 mb-6">
-          <Check className="w-6 h-6 text-green-400" />
-          <h3 className="fantasy-title text-xl font-bold text-white">
-            Story Complete!
-          </h3>
+    <div>
+      <div className="text-center mb-8">
+        <div className="inline-block p-3 bg-primary-600/20 rounded-full mb-4">
+          <BookOpen className="w-12 h-12 text-primary-400" />
         </div>
+        <h1 className="fantasy-title text-3xl font-bold text-white mb-2">
+          Story Complete!
+        </h1>
+        <p className="text-white/70">
+          Your collaborative tale has come to an end. You can read through it below or download it.
+        </p>
         
-        <div className="mb-6">
-          <h2 className="fantasy-title text-2xl font-bold text-white mb-2">
-            {roomData.room.title}
-          </h2>
-          {roomData.room.description && (
-            <p className="text-white/70 mb-4">{roomData.room.description}</p>
-          )}
-          <div className="flex items-center space-x-4 text-sm text-white/60">
-            <div>Room: {roomData.room.roomCode}</div>
-            <div>Genre: {roomData.room.genre.replace('_', ' ')}</div>
-            <div>
-              {new Date(roomData.room.completedAt).toLocaleDateString()}
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <h4 className="text-white font-medium mb-3">Characters</h4>
-            <div className="space-y-2">
-              {roomData.players.map(player => (
-                <div key={player.id} className="flex items-center space-x-2 bg-white/5 p-2 rounded">
-                  <div className="text-lg">
-                    {player.role === 'PROTAGONIST' ? '🗡️' : 
-                     player.role === 'ANTAGONIST' ? '👹' :
-                     player.role === 'NARRATOR' ? '📚' : '👤'}
-                  </div>
-                  <div>
-                    <div className="text-white font-medium">{player.characterName || player.playerName}</div>
-                    <div className="text-sm text-white/60">{player.role.replace('_', ' ')}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <h4 className="text-white font-medium mb-3">Statistics</h4>
-            <div className="space-y-2">
-              <div className="bg-white/5 p-3 rounded">
-                <div className="text-sm text-white/60">Total Messages</div>
-                <div className="text-lg font-medium text-white">{storyMessages.length}</div>
-              </div>
-              <div className="bg-white/5 p-3 rounded">
-                <div className="text-sm text-white/60">Story Duration</div>
-                <div className="text-lg font-medium text-white">
-                  {Math.floor(roomData.room.duration / 60)} minutes
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex flex-wrap gap-3">
-          <Button 
-            onClick={handleCopyStory} 
-            icon={copied ? <Check className="w-4 h-4" /> : <Share className="w-4 h-4" />}
-            variant={copied ? 'secondary' : 'primary'}
+        <div className="flex justify-center mt-6 gap-4">
+          <button 
+            className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-md flex items-center"
+            onClick={handleDownload}
           >
-            {copied ? 'Copied!' : 'Copy Story'}
-          </Button>
-          <Button 
-            onClick={handleDownloadStory}
-            icon={<Download className="w-4 h-4" />}
-            variant="secondary"
+            <Download className="w-5 h-5 mr-2" />
+            Download Story
+          </button>
+          <button 
+            className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-md"
+            onClick={() => navigate('/')}
           >
-            Download as Markdown
-          </Button>
+            Create New Story
+          </button>
+        </div>
+      </div>
+      
+      <div className="card mb-6">
+        <h2 className="text-2xl font-bold text-white mb-2">
+          {roomData.room.title}
+        </h2>
+        {roomData.room.description && (
+          <p className="text-white/70 mb-6">{roomData.room.description}</p>
+        )}
+        <div className="flex flex-wrap gap-3 mb-6">
+          <div className="bg-white/10 px-4 py-2 rounded-full text-white/70 text-sm">
+            {formatGenre(roomData.room.genre)}
+          </div>
+          <div className="bg-white/10 px-4 py-2 rounded-full text-white/70 text-sm">
+            {roomData.players.length} Contributors
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+        <h3 className="text-xl font-bold text-white mb-4">Story Transcript</h3>
+        
+        <div className="space-y-4">
+          {messages.filter(msg => msg.messageType !== 'SYSTEM').map((msg, idx) => (
+            <div key={idx} className="border-b border-white/10 pb-4">
+              <div className="flex items-center mb-2">
+                <div className="text-lg mr-2">
+                  {msg.senderRole === 'PROTAGONIST' ? '🗡️' : 
+                   msg.senderRole === 'ANTAGONIST' ? '👹' :
+                   msg.senderRole === 'NARRATOR' ? '📚' : '👤'}
+                </div>
+                <div>
+                  <div className="font-medium text-white">
+                    {msg.messageType === 'TWIST' && (
+                      <span className="bg-purple-500/40 text-xs px-2 py-0.5 rounded mr-1">TWIST</span>
+                    )}
+                    {msg.senderName || 'Unknown'}
+                  </div>
+                  {msg.senderRole && (
+                    <div className="text-xs text-white/60">
+                      {msg.senderRole.replace('_', ' ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="text-white/90 pl-8">{msg.content}</div>
+            </div>
+          ))}
         </div>
       </div>
       
       <div className="card">
-        <h3 className="fantasy-title text-lg font-bold text-white mb-4">
-          Story Transcript
-        </h3>
-        <div className="space-y-4 max-h-96 overflow-y-auto p-4 bg-white/5 rounded-lg">
-          {storyMessages.map((message, index) => (
-            <div key={message.id || index} className="leading-relaxed">
-              <div className="font-medium text-white">
-                {message.senderName} 
-                {message.messageType === 'TWIST' && 
-                  <span className="ml-2 text-xs bg-purple-500/50 px-2 py-1 rounded">BIG TWIST</span>}
-                :
+        <h3 className="text-xl font-bold text-white mb-4">Contributors</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {roomData.players.map(player => (
+            <div key={player.id} className="bg-white/5 p-3 rounded-lg">
+              <div className="flex items-center">
+                <div className="text-lg mr-2">
+                  {player.role === 'PROTAGONIST' ? '🗡️' : 
+                   player.role === 'ANTAGONIST' ? '👹' :
+                   player.role === 'NARRATOR' ? '📚' : '👤'}
+                </div>
+                <div>
+                  <div className="font-medium text-white">{player.playerName}</div>
+                  <div className="text-sm text-white/60">
+                    as {player.characterName} ({player.role?.replace('_', ' ')})
+                  </div>
+                </div>
               </div>
-              <div className="text-white/80 mt-1">{message.content}</div>
             </div>
           ))}
         </div>
@@ -154,5 +122,13 @@ const StoryCompletion = ({ roomData, messages }) => {
     </div>
   );
 };
+
+// Helper function to format genre
+function formatGenre(genre) {
+  if (!genre) return '';
+  return genre.replace('_', ' ').split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
 
 export default StoryCompletion;

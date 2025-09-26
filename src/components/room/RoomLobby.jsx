@@ -1,33 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Users, Clock, Edit, Check } from 'lucide-react';
 import TitleEditor from '../game/TitleEditor';
-import RoleAssignment from '../game/RoleAssignment';
 import LeaveRoom from './LeaveRoom';
-import Button from '../common/Button';
-import { Clock, Users, Play, Edit, UserCheck } from 'lucide-react';
 
-const RoomLobby = ({ 
-  roomData, 
-  currentPlayer, 
+const RoomLobby = ({
+  roomData,
+  currentPlayer,
   onStartRoleAssignment,
   onUpdateTitle,
   onUpdateCharacter,
-  onAssignRoles,
   onStartStorytelling,
   isConnected
 }) => {
   const [titleSubmitting, setTitleSubmitting] = useState(false);
   const [characterSubmitting, setCharacterSubmitting] = useState(false);
-  const [showManualLink, setShowManualLink] = useState(false);
   
+  // Add detailed debug log to check roomData structure
+  console.log("RoomLobby - roomData:", roomData);
+  console.log("RoomLobby - roomData structure:", {
+    hasRoomProperty: !!roomData?.room,
+    directStatus: roomData?.status,
+    nestedStatus: roomData?.room?.status,
+    directId: roomData?.roomId
+  });
+  
+  // Handle the case where room data structure is different than expected
+  const getRoomData = () => {
+    // If roomData has a 'room' property, use that
+    if (roomData?.room) {
+      return roomData.room;
+    }
+    
+    // If roomData itself has roomId, status, etc. it's probably the room object directly
+    if (roomData?.roomId) {
+      return roomData;
+    }
+    
+    // Fallback - return an empty object to avoid errors
+    return {};
+  };
+  
+  // Get room data using the helper function
+  const room = getRoomData();
+  
+  if (!roomData || (!roomData.room && !roomData.roomId)) {
+    console.log("RoomLobby - Missing or invalid room data");
+    return (
+      <div className="card text-center p-8">
+        <h3 className="text-xl font-bold text-white mb-4">Loading Room...</h3>
+        <div className="flex justify-center">
+          <div className="w-8 h-8 border-4 border-primary-600/30 border-t-primary-600 rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
   const isOwner = currentPlayer?.isTitleCreator;
-  const status = roomData.room.status;
+  const status = room.status || roomData.status || 'CREATED'; // Default to CREATED if no status
   const isCreated = status === 'CREATED';
   const isRoleAssignment = status === 'ROLE_ASSIGNMENT';
   
-  // Check if all players have character names (for enabling Start Storytelling)
-  const allPlayersHaveCharacters = roomData.players.every(p => 
+  // Check if all players have characters (for enabling Start Storytelling)
+  const allPlayersHaveCharacters = roomData.players?.every(p => 
     p.characterName && p.characterName.trim() !== ''
-  );
+  ) || false;
   
   // Handle title update
   const handleTitleUpdate = async (titleData) => {
@@ -53,41 +89,30 @@ const RoomLobby = ({
     }
   };
   
-  // Show manual link after 20 seconds if we're in role assignment phase
-  useEffect(() => {
-    if (isRoleAssignment) {
-      const timer = setTimeout(() => {
-        setShowManualLink(true);
-      }, 20000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isRoleAssignment]);
-  
   return (
     <div>
       {/* Room Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="fantasy-title text-3xl font-bold text-white">
-            Room: {roomData.room.roomCode}
+            Room: {room.roomCode || roomData.roomCode}
           </h1>
           <p className="text-white/70 mt-1">
             {isCreated ? 'Setting up the story' : 'Preparing for storytelling'}
           </p>
         </div>
-        <LeaveRoom roomCode={roomData.room.roomCode} />
+        <LeaveRoom roomCode={room.roomCode || roomData.roomCode} />
       </div>
       
       {/* Room Status Pills */}
       <div className="flex flex-wrap gap-3 mb-6">
         <div className="bg-white/10 px-4 py-2 rounded-full flex items-center">
           <Users className="w-4 h-4 mr-2 text-white/70" />
-          <span className="text-white">{roomData.players.length} Players</span>
+          <span className="text-white">{roomData.players?.length || 0} Players</span>
         </div>
         <div className="bg-white/10 px-4 py-2 rounded-full flex items-center">
           <Clock className="w-4 h-4 mr-2 text-white/70" />
-          <span className="text-white">{Math.floor(roomData.room.duration / 60)} Minutes</span>
+          <span className="text-white">{Math.floor((room.duration || 1200) / 60)} Minutes</span>
         </div>
         <div className="bg-primary-600/30 border border-primary-600/50 px-4 py-2 rounded-full flex items-center">
           <span className="text-white font-medium">{status}</span>
@@ -183,19 +208,19 @@ const RoomLobby = ({
                 
                 {isOwner && isCreated && (
                   <div className="flex justify-end">
-                    <Button 
-                      size="sm"
+                    <button 
+                      className="btn-primary"
                       onClick={onStartRoleAssignment}
-                      isLoading={titleSubmitting}
+                      disabled={titleSubmitting}
                     >
                       Start Role Assignment
-                    </Button>
+                    </button>
                   </div>
                 )}
                 
                 {!isOwner && isCreated && (
                   <div className="flex justify-end items-center text-white/70 text-sm">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-primary-400 rounded-full animate-spin"></div>
                     Waiting for room creator...
                   </div>
                 )}
@@ -227,20 +252,20 @@ const RoomLobby = ({
                 
                 {isOwner && isRoleAssignment && (
                   <div className="flex justify-end">
-                    <Button 
-                      size="sm"
+                    <button 
+                      className="btn-primary flex items-center"
                       onClick={onStartStorytelling}
                       disabled={!allPlayersHaveCharacters}
-                      icon={<Play className="w-4 h-4" />}
                     >
+                      <Check className="w-4 h-4 mr-1" />
                       Start Storytelling
-                    </Button>
+                    </button>
                   </div>
                 )}
                 
                 {!isOwner && isRoleAssignment && (
                   <div className="flex justify-end items-center text-white/70 text-sm">
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-primary-400 rounded-full animate-spin"></div>
                     Waiting for room creator to start...
                   </div>
                 )}
@@ -257,20 +282,18 @@ const RoomLobby = ({
                 </p>
               </div>
               
-              {/* Manual redirect link */}
-              {showManualLink && isRoleAssignment && (
+              {/* Manual redirect info */}
+              {isRoleAssignment && (
                 <div className="mt-6 text-center">
                   <p className="text-white/70 text-sm mb-2">
                     Not being redirected automatically?
                   </p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
+                  <button 
+                    className="text-white bg-primary-600/50 hover:bg-primary-600/70 px-3 py-1 rounded-md text-sm"
                     onClick={onStartStorytelling}
-                    icon={<Play className="w-4 h-4" />}
                   >
                     Enter Storytelling Mode
-                  </Button>
+                  </button>
                 </div>
               )}
             </div>
@@ -282,8 +305,8 @@ const RoomLobby = ({
           {/* Title Editor (Owner Only) */}
           {isOwner && isCreated && (
             <TitleEditor 
-              currentTitle={roomData.room.title}
-              currentDescription={roomData.room.description}
+              currentTitle={room.title}
+              currentDescription={room.description}
               onSave={handleTitleUpdate}
               isLoading={titleSubmitting}
             />
@@ -293,7 +316,7 @@ const RoomLobby = ({
           {isRoleAssignment && currentPlayer?.role && (
             <div className="card">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-                <UserCheck className="w-5 h-5 mr-2" /> Your Role
+                <Users className="w-5 h-5 mr-2" /> Your Role
               </h2>
               
               <div className="p-4 rounded-lg bg-white/5 border border-white/10 mb-4">
@@ -311,10 +334,9 @@ const RoomLobby = ({
                   <input
                     type="text"
                     value={currentPlayer.characterName || ''}
-                    onChange={(e) => {}} // Handled by update button
+                    onChange={() => {}} // Handled by update button
                     className="flex-1 bg-white/10 border border-white/30 rounded-l-lg px-3 py-2 text-white"
                     placeholder="Enter character name"
-                    disabled={characterSubmitting}
                   />
                   <button
                     onClick={() => {
@@ -326,7 +348,7 @@ const RoomLobby = ({
                     className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-r-lg"
                     disabled={characterSubmitting}
                   >
-                    Update
+                    {characterSubmitting ? "..." : "Update"}
                   </button>
                 </div>
                 <p className="text-white/60 text-xs">
@@ -344,28 +366,28 @@ const RoomLobby = ({
               <div>
                 <label className="text-white/60 text-sm block mb-1">Title</label>
                 <div className="font-medium text-white">
-                  {roomData.room.title || "Not set yet"}
+                  {room.title || "Not set yet"}
                 </div>
               </div>
               
               <div>
                 <label className="text-white/60 text-sm block mb-1">Description</label>
                 <div className="text-white/90">
-                  {roomData.room.description || "No description yet"}
+                  {room.description || "No description yet"}
                 </div>
               </div>
               
               <div>
                 <label className="text-white/60 text-sm block mb-1">Genre</label>
                 <div className="text-white/90">
-                  {formatGenre(roomData.room.genre)}
+                  {formatGenre(room.genre)}
                 </div>
               </div>
               
               <div>
                 <label className="text-white/60 text-sm block mb-1">Duration</label>
                 <div className="text-white/90">
-                  {Math.floor(roomData.room.duration / 60)} minutes
+                  {Math.floor((room.duration || 1200) / 60)} minutes
                 </div>
               </div>
             </div>

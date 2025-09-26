@@ -1,7 +1,7 @@
-// src/hooks/useRoom.js
-import { useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRoomContext } from '../context/RoomContext';
 import { useWebSocketContext } from '../context/WebSocketContext';
+import { gameApi } from '../api/gameApi';
 
 export const useRoom = (roomCode) => {
   const {
@@ -10,11 +10,8 @@ export const useRoom = (roomCode) => {
     loading,
     error,
     refreshRoom,
-    startRoleAssignment,
     updateTitle,
-    updateCharacter,
-    startStorytelling,
-    completeStory
+    updateCharacter
   } = useRoomContext();
 
   const {
@@ -27,40 +24,104 @@ export const useRoom = (roomCode) => {
     sendMessage
   } = useWebSocketContext();
 
-  // Update room data when WebSocket status changes
+  // Local loading state to override context if needed
+  const [forceLoaded, setForceLoaded] = useState(false);
+  
+  // Debug log roomData structure
+  useEffect(() => {
+    if (roomData) {
+      console.log("useRoom - roomData full object:", roomData);
+      console.log("useRoom - roomData structure:", {
+        hasRoomProperty: !!roomData.room,
+        directStatus: roomData.status,
+        nestedStatus: roomData.room?.status,
+        directRoomId: roomData.roomId,
+        playersCount: roomData.players?.length
+      });
+      
+      // Try to determine the actual status
+      const status = roomData.status || roomData.room?.status || (roomData.roomId && 'CREATED');
+      console.log("useRoom - determined status:", status);
+    }
+  }, [roomData]);
+
+  // If we have roomData but loading is still true after 5 seconds, force set loading to false
+  useEffect(() => {
+    let timeoutId;
+    if (roomData && loading) {
+      // Give it 2 seconds to finish loading naturally
+      timeoutId = setTimeout(() => {
+        console.log("Force setting loading to false after timeout");
+        setForceLoaded(true);
+      }, 2000);
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [roomData, loading]);
+
+  // Listen for status updates from WebSocket to trigger refreshes
   useEffect(() => {
     if (roomStatus) {
+      console.log('Room status updated via WebSocket:', roomStatus);
       refreshRoom();
     }
   }, [roomStatus, refreshRoom]);
 
-  // Handle specific game actions
-  const handleAction = async (actionType) => {
+  // Handle game progression actions
+  const handleAction = useCallback(async (actionType) => {
     try {
+      console.log('Handling action:', actionType);
+      
       switch (actionType) {
         case 'START_ROLE_ASSIGNMENT':
-          await startRoleAssignment();
+          await gameApi.startRoleAssignment(roomCode);
           break;
+        
+        case 'ASSIGN_ROLES':
+          await gameApi.assignRoles(roomCode);
+          break;
+        
         case 'START_STORYTELLING':
-          await startStorytelling();
+          await gameApi.startStorytelling(roomCode);
           break;
+        
         case 'COMPLETE_STORY':
-          await completeStory();
+          await gameApi.completeStory(roomCode);
           break;
+          
         default:
           console.warn('Unknown action type:', actionType);
       }
+      
+      // Refresh room data after action
+      refreshRoom();
+      
+      return true;
     } catch (error) {
       console.error(`Error performing action ${actionType}:`, error);
-      throw error;
+      return false;
     }
-  };
+  }, [roomCode, refreshRoom]);
+
+  // Handle story completion
+  const completeStory = useCallback(async () => {
+    try {
+      await gameApi.completeStory(roomCode);
+      refreshRoom();
+      return true;
+    } catch (error) {
+      console.error('Error completing story:', error);
+      return false;
+    }
+  }, [roomCode, refreshRoom]);
 
   return {
     roomCode,
     roomData,
     currentPlayer,
-    loading,
+    loading: loading && !forceLoaded, // Override loading if we've force loaded
     error,
     isConnected,
     messages,

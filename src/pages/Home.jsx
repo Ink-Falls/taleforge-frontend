@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Scroll, Users, Sparkles } from 'lucide-react';
 import CreateRoom from '../components/room/CreateRoom';
@@ -9,16 +9,23 @@ import { useSession } from '../context/SessionContext';
 const Home = () => {
   const [activeTab, setActiveTab] = useState('create');
   const navigate = useNavigate();
-  const { currentRoomCode } = useSession();
+  const { roomCode } = useSession();
+  
+  // Use a ref to track if we've already processed the redirect
+  const hasRedirected = useRef(false);
 
-  // Redirect if already in a room
+  // Only redirect once and only if roomCode exists and we haven't redirected yet
   useEffect(() => {
-    if (currentRoomCode) {
-      navigate(`/room/${currentRoomCode}`);
+    if (roomCode && !hasRedirected.current) {
+      console.log(`Home: Redirecting to room ${roomCode} (one-time)`);
+      hasRedirected.current = true;
+      navigate(`/room/${roomCode}`);
     }
-  }, [currentRoomCode, navigate]);
+  }, [roomCode, navigate]);
 
   const handleRoomSuccess = (roomCode) => {
+    console.log(`Room creation/join success: ${roomCode}, redirecting`);
+    // This will trigger navigation directly without relying on the useEffect
     navigate(`/room/${roomCode}`);
   };
 

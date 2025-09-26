@@ -7,7 +7,8 @@ import { useSession } from '../../context/SessionContext';
 import { LogIn } from 'lucide-react';
 
 const JoinRoom = ({ onSuccess }) => {
-  const { setPlayerId, setPlayerName, setCurrentRoomCode } = useSession();
+  // Use the correct function name from SessionContext
+  const { setPlayerId, setPlayerName, setRoomCode } = useSession();
   const [formData, setFormData] = useState({
     playerName: '',
     roomCode: ''
@@ -32,16 +33,38 @@ const JoinRoom = ({ onSuccess }) => {
         playerName: formData.playerName 
       });
       
-      // Save session data
-      setPlayerId(response.playerId);
-      setPlayerName(formData.playerName);
-      setCurrentRoomCode(formData.roomCode);
+      console.log('Join response:', response);
       
-      // Notify parent component
+      // Find the player in the response that matches our name
+      const joinedPlayer = response.players.find(
+        p => p.playerName === formData.playerName
+      );
+      
+      if (!joinedPlayer) {
+        throw new Error('Could not find player data in the response');
+      }
+
+      // Store values in sessionStorage with the taleforge_ prefix
+      sessionStorage.setItem('taleforge_playerId', joinedPlayer.id);
+      sessionStorage.setItem('taleforge_playerName', formData.playerName);
+      sessionStorage.setItem('taleforge_roomCode', formData.roomCode);
+      
+      console.log('Session data saved:', {
+        playerId: joinedPlayer.id,
+        playerName: formData.playerName,
+        roomCode: formData.roomCode
+      });
+      
+      // Update context values in correct order
+      setPlayerId(joinedPlayer.id);
+      setPlayerName(formData.playerName);
+      setRoomCode(formData.roomCode);
+      
+      // Notify parent component - AFTER context is updated
       onSuccess(formData.roomCode);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to join room. Please check the room code.');
       console.error('Error joining room:', err);
+      setError(err.response?.data?.error || 'Failed to join room. Please check the room code.');
     } finally {
       setLoading(false);
     }

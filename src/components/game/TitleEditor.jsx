@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Button from '../common/Button';
 import { Save, Edit } from 'lucide-react';
 
 const TitleEditor = ({ 
@@ -47,14 +46,13 @@ const TitleEditor = ({
           )}
         </div>
         
-        <Button
+        <button
           onClick={() => setEditing(true)}
-          variant="ghost"
-          size="sm"
-          icon={<Edit className="w-4 h-4" />}
+          className="text-white bg-primary-600/50 hover:bg-primary-600/70 px-3 py-1 rounded-md text-sm flex items-center"
         >
+          <Edit className="w-4 h-4 mr-1" />
           Edit Details
-        </Button>
+        </button>
       </div>
     );
   }
@@ -72,9 +70,7 @@ const TitleEditor = ({
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white 
-                     placeholder-white/60 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 
-                     transition-all duration-200 outline-none border-white/30"
+            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/60 focus:border-primary-500 transition-all duration-200 outline-none border-white/30"
             placeholder="Enter a captivating title..."
             maxLength={100}
           />
@@ -87,23 +83,30 @@ const TitleEditor = ({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white 
-                     placeholder-white/60 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 
-                     transition-all duration-200 outline-none border-white/30"
+            className="w-full px-4 py-2 bg-white/10 border rounded-lg text-white placeholder-white/60 focus:border-primary-500 transition-all duration-200 outline-none border-white/30"
             placeholder="Set the scene for your story..."
             rows={4}
             maxLength={500}
           />
         </div>
         
-        <Button
+        <button
           onClick={handleSave}
-          fullWidth
-          isLoading={isLoading}
-          icon={<Save className="w-4 h-4" />}
+          className="w-full flex items-center justify-center bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md"
+          disabled={isLoading}
         >
-          Save Story Details
-        </Button>
+          {isLoading ? (
+            <>
+              <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Save Story Details
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
