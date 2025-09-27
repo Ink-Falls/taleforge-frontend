@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Download, BookOpen, Share2, Home } from 'lucide-react';
+import { Download, BookOpen, Share2, Check, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { gameApi } from '../../api/gameApi';
-import { roomApi } from '../../api/roomApi';
-import { useSession } from '../../context/SessionContext';
+import LeaveRoom from '../room/LeaveRoom';
 
 const StoryCompletion = ({ roomData, messages }) => {
   const navigate = useNavigate();
-  const { clearSession } = useSession();
   const [copied, setCopied] = React.useState(false);
   const [room, setRoom] = useState({});
-  const [leavingRoom, setLeavingRoom] = useState(false);
   
   // Safely extract room data when component mounts or roomData changes
   useEffect(() => {
@@ -90,28 +87,6 @@ const StoryCompletion = ({ roomData, messages }) => {
   // Safely get players (with fallback to empty array)
   const players = roomData?.players || [];
   
-  // Handle leave room and go back to home
-  const handleLeaveRoom = async () => {
-    try {
-      setLeavingRoom(true);
-      
-      // Call the leave room API
-      const roomCode = room.roomCode || roomData?.roomCode;
-      if (roomCode) {
-        await roomApi.leaveRoom(roomCode);
-      }
-      
-      // Clear session and redirect to home
-      clearSession();
-      navigate('/', { replace: true });
-    } catch (error) {
-      console.error('Error leaving room:', error);
-      alert('Failed to leave room. Please try again.');
-    } finally {
-      setLeavingRoom(false);
-    }
-  };
-
   return (
     <div>
       <div className="text-center mb-8">
@@ -249,23 +224,13 @@ const StoryCompletion = ({ roomData, messages }) => {
         </div>
         
         <div className="mt-8 text-center">
-          <button 
-            className="bg-primary-600/50 hover:bg-primary-600 text-white px-6 py-2 rounded-md flex items-center mx-auto"
-            onClick={handleLeaveRoom}
-            disabled={leavingRoom}
-          >
-            {leavingRoom ? (
-              <>
-                <div className="w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Leaving...
-              </>
-            ) : (
-              <>
-                <Home className="w-5 h-5 mr-2" />
-                Back to Home
-              </>
-            )}
-          </button>
+          {/* Replace the simple button with LeaveRoom component */}
+          <LeaveRoom 
+            roomCode={room.roomCode} 
+            customLabel="Back to Home"
+            customIcon={<Home className="w-5 h-5 mr-2" />}
+            className="inline-flex items-center bg-primary-600/50 hover:bg-primary-600 text-white px-6 py-2 rounded-md"
+          />
         </div>
       </div>
     </div>
