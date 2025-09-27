@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs';
+import SockJS from 'sockjs-client';
 import '../utils/socket-polyfill';
 
 export const useWebSocket = (roomCode) => {
@@ -48,12 +48,31 @@ export const useWebSocket = (roomCode) => {
   
   // Connect function
   const connect = useCallback(() => {
-    if (!roomCode || isConnected || connectingRef.current || clientRef.current) {
+    if (!roomCode) {
+      console.warn('Cannot connect: No room code provided');
       return;
+    }
+    
+    // Only allow one connection attempt at a time
+    if (connectingRef.current) {
+      console.log('Already attempting to connect, skipping');
+      return;
+    }
+    
+    // If we already have a client and it's connected, don't reconnect
+    if (clientRef.current?.connected) {
+      console.log('Already connected, skipping connection attempt');
+      return;
+    }
+    
+    // Clear any existing client before creating a new one
+    if (clientRef.current) {
+      cleanupConnection();
     }
     
     console.log('WebSocket: Initializing connection for room', roomCode);
     connectingRef.current = true;
+    setIsConnected(false);
 
     try {
       const client = new Client({
@@ -63,8 +82,8 @@ export const useWebSocket = (roomCode) => {
         
         onConnect: () => {
           console.log('Connected to WebSocket');
-          setIsConnected(true);
           connectingRef.current = false;
+          setIsConnected(true);
           
           // Subscribe to topics
           const subs = [
@@ -139,66 +158,130 @@ export const useWebSocket = (roomCode) => {
         }
       });
       
-      client.activate();
+      // Store the client reference BEFORE activating
       clientRef.current = client;
+      
+      // Then activate the client
+      client.activate();
     } catch (err) {
       console.error('Error creating WebSocket connection', err);
       connectingRef.current = false;
+      clientRef.current = null;
+      setIsConnected(false);
     }
-  }, [roomCode, isConnected, wsUrl]);
+  }, [roomCode, wsUrl, cleanupConnection]);
 
   // Send message function
   const sendMessage = useCallback((content, messageType = 'REGULAR') => {
-    if (!clientRef.current || !isConnected || !roomCode) {
-      console.warn('Cannot send message: WebSocket not connected');
-      return false;
-    }
+    console.log('Attempting to send message', { 
+      content, 
+      messageType, 
+      isConnected, 
+      clientExists: !!clientRef.current,
+      clientConnected: clientRef.current?.connected 
+    });
     
-    try {
-      // Use sessionStorage instead of localStorage for consistency with the rest of the app
-      const playerId = sessionStorage.getItem('taleforge_playerId');
-      if (!playerId) {
-        console.error('Cannot send message: No player ID found');
-        return false;
+    return new Promise((resolve, reject) => {
+      // If client doesn't exist but we think we're connected, try to reconnect
+      if (!clientRef.current && isConnected) {
+        console.warn('Client missing despite connected state, attempting to reconnect');
+        connect();
+        reject(new Error('WebSocket client not initialized'));
+        return;
       }
       
-      const message = {
-        content,
-        messageType,
-        playerId
-      };
+      if (!clientRef.current) {
+        console.warn('Cannot send message: No WebSocket client');
+        reject(new Error('WebSocket client not initialized'));
+        return;
+      }
       
-      console.log('WebSocket: Sending message:', message);
+      if (!clientRef.current.connected) {
+        console.warn('Cannot send message: WebSocket not connected');
+        
+        // If we think we're connected but the client isn't, reset connection
+        if (isConnected) {
+          console.warn('Connection state mismatch, attempting to reconnect');
+          setIsConnected(false);
+          connect();
+        }
+        
+        reject(new Error('WebSocket not connected'));
+        return;
+      }
       
-      clientRef.current.publish({
-        destination: `/app/room/${roomCode}/send`,
-        body: JSON.stringify(message),
-        headers: { 'content-type': 'application/json' }
-      });
-      
-      return true;
-    } catch (error) {
-      console.error('Error sending message:', error);
-      return false;
-    }
-  }, [roomCode, isConnected]);
+      try {
+        // Use sessionStorage instead of localStorage for consistency with the rest of the app
+        const playerId = sessionStorage.getItem('taleforge_playerId');
+        if (!playerId) {
+          console.error('Cannot send message: No player ID found');
+          reject(new Error('No player ID found'));
+          return;
+        }
+        
+        const message = {
+          content,
+          messageType,
+          playerId
+        };
+        
+        console.log('WebSocket: Sending message:', message);
+        
+        clientRef.current.publish({
+          destination: `/app/room/${roomCode}/send`,
+          body: JSON.stringify(message),
+          headers: { 'content-type': 'application/json' }
+        });
+        
+        console.log('Message sent successfully');
+        resolve();
+      } catch (error) {
+        console.error('Error sending message:', error);
+        reject(error);
+      }
+    });
+  }, [roomCode, isConnected, connect]);
 
   // Connect only when roomCode changes or component mounts
   useEffect(() => {
     // Only initialize once
     if (roomCode && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
-      connect();
+      
+      // Add a short delay before connecting to ensure component is fully mounted
+      setTimeout(() => {
+        connect();
+      }, 100);
     }
     
+    // Cleanup function
     return () => {
-      // Only clean up if we've initialized
       if (hasInitializedRef.current) {
         cleanupConnection();
         hasInitializedRef.current = false;
       }
     };
   }, [roomCode, connect, cleanupConnection]);
+  
+  // Add connection health check
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      // If we think we're connected but client is null or not connected,
+      // there's a state mismatch that needs fixing
+      if (isConnected && (!clientRef.current || !clientRef.current.connected)) {
+        console.warn('Connection state mismatch detected in health check');
+        setIsConnected(false);
+        
+        // Try to reconnect if not already connecting
+        if (!connectingRef.current) {
+          console.log('Health check: attempting reconnection');
+          connect();
+        }
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => clearInterval(checkInterval);
+  }, [isConnected, connect]);
 
   return {
     isConnected,
